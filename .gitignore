@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.DS_Store
+coverage/
+.next/
+*.log
+
+# Entornos de desarrollo locales y agentes de IA
+.gemini/
+.cursor/
+.cline/
+.aider/
+.aider*
+.roo/

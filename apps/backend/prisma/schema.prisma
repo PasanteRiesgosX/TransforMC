@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  nombre             String
+  apellido           String
+  cargo              String
+  email              String    @unique
+  passwordHash       String
+  rol                String    // Usamos String por compatibilidad futura con SQL Server (no enum)
+  mustChangePassword Boolean   @default(true)
+  activo             Boolean   @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  createdById        String?
+  
+  // Relación opcional para auditoría de quién creó a este usuario
+  createdBy          User?     @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers       User[]    @relation("UserCreator")
+  modulosCreados     Modulo[]
+
+  @@map("users")
+}
+
+model Modulo {
+  id            String      @id @default(uuid())
+  nombre        String      @unique
+  version       String?
+  conjunto      String?
+  orden         Int         @default(0)
+  activo        Boolean     @default(true)
+  creadoPorId   String?
+  creadoPor     User?       @relation(fields: [creadoPorId], references: [id])
+  creadoEn      DateTime    @default(now())
+  actualizadoEn DateTime    @updatedAt
+
+  subModulos    SubModulo[]
+
+  @@index([orden])
+}
+
+model SubModulo {
+  id            String        @id @default(uuid())
+  nombre        String
+  orden         Int           @default(0)
+
+  moduloId      String
+  modulo        Modulo        @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  creadoEn      DateTime      @default(now())
+  actualizadoEn DateTime      @updatedAt
+
+  clasificadores Clasificador[]
+  casosPrueba   CasoPrueba[]
+
+  @@index([moduloId, orden])
+}
+
+model Clasificador {
+  id            String       @id @default(uuid())
+  nombre        String
+  orden         Int          @default(0)
+
+  subModuloId   String
+  subModulo     SubModulo    @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
+
+  creadoEn      DateTime     @default(now())
+
+  casosPrueba   CasoPrueba[]
+
+  @@index([subModuloId, orden])
+}
+
+model CasoPrueba {
+  id             String        @id @default(uuid())
+  nombre         String
+  orden          Int           @default(0)
+
+  subModuloId    String
+  subModulo      SubModulo     @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
+
+  clasificadorId String?
+  clasificador   Clasificador? @relation(fields: [clasificadorId], references: [id], onDelete: SetNull)
+
+  creadoEn       DateTime      @default(now())
+  actualizadoEn  DateTime      @updatedAt
+
+  @@index([subModuloId, orden])
+  @@index([clasificadorId])
+}
