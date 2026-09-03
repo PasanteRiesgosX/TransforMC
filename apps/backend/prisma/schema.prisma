@@ -100,3 +100,5 @@ model CasoPrueba {
   @@index([subModuloId, orden])
   @@index([clasificadorId])
 }
+
+

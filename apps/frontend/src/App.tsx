@@ -8,6 +8,8 @@ import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { ChangePassword } from './pages/ChangePassword';
 import { AdminUsers } from './pages/AdminUsers';
+import { AdminCatalog } from './pages/AdminCatalog';
+import { AdminCatalogDetail } from './pages/AdminCatalogDetail';
 
 // Layouts
 import { AdminLayout } from './components/layout/AdminLayout';
@@ -38,6 +40,8 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="usuarios" />} />
         <Route path="usuarios" element={<AdminUsers />} />
+        <Route path="catalogo" element={<AdminCatalog />} />
+        <Route path="catalogo/:id" element={<AdminCatalogDetail />} />
         <Route path="dashboard" element={
           <div className="p-8 text-center text-gray-500">
             Dashboard en construcción...

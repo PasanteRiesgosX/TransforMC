@@ -20,6 +20,7 @@ export class ModulosService {
       include: {
         subModulos: {
           include: {
+            casosPrueba: true,
             _count: { select: { casosPrueba: true } }
           }
         },

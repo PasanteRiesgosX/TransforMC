@@ -118,6 +118,39 @@ con fondo `-bg` del color correspondiente:
 Está **prohibido** un ícono mayor a 24px fuera de badges grandes (warn icon), y mayor a 20px dentro
 de badges normales.
 
+**Prohibido usar emojis como ícono en ningún lugar de la app** (ni en el sidebar de navegación, ni
+en las tarjetas de módulo del catálogo, ni en ningún badge). Todos los íconos deben ser SVG de una
+librería real (`lucide-react` recomendada), con `size={}` explícito según la tabla de arriba. La
+maqueta original usaba emojis (📦 🎬 🎟️ etc.) solo como placeholder — en la app real se reemplazan
+1 a 1 por íconos de línea de la misma librería, manteniendo el mismo color de fondo (`-bg`) que
+tenía el emoji.
+
+### Mapa de íconos por módulo (reemplaza a los emojis de la maqueta)
+
+Usa este mapeo por palabra clave en el nombre del módulo (case-insensitive, `includes`), igual que
+hacía `moduloIcon()` en la maqueta, pero devolviendo un nombre de ícono de `lucide-react` en vez de
+un emoji:
+
+| Palabra(s) clave en el nombre         | Ícono lucide-react |
+|----------------------------------------|---------------------|
+| `film`, `program`                      | `Clapperboard`      |
+| `voucher`, `vmanagement`                | `Ticket`            |
+| `loyalty`                               | `CreditCard`        |
+| `head office`, `headoffice`             | `Building2`         |
+| `back office`, `backoffice`             | `Archive`           |
+| `cinema manager`                        | `Video`             |
+| `cash desk`                             | `Banknote`          |
+| `kiosco trade`, `trade`                 | `ShoppingCart`      |
+| `pos`                                   | `Receipt`           |
+| `ta ia`, `ia interactive`               | `Bot`               |
+| `kiosco vista`, `kiosk`                 | `Monitor`           |
+| `usher`                                 | `DoorOpen`          |
+| *(ninguna coincidencia — fallback)*     | `Package`           |
+
+El color de fondo del badge (`mod-icon`) sigue igual que antes: se calcula por hash del `id` del
+módulo sobre la lista `['cian','morado','magenta','naranja','teal']` — no lo cambies, solo cambia
+el contenido de adentro (emoji → ícono SVG).
+
 ---
 
 ## 5. Logo
@@ -157,11 +190,16 @@ de badges normales.
 - Izquierda: logo (22px) + breadcrumb con separador vertical.
 - Derecha: chip de usuario (avatar circular 30px + nombre) + botón "Salir" tipo pill translúcido.
 
-### Sidebar
+### Sidebar — navegación por módulos
 - Ancho fijo `224px`, fondo blanco, borde derecho sutil.
-- Ítems de navegación: `padding: 10px 12px`, radius-s, ícono 18px + label 13.5px bold.
-- Activo: fondo `--cian-bg`, texto cian. Deshabilitado (pestañas sin implementar aún): opacidad
-  0.55, cursor default, sin hover.
+- Ítems de navegación: `padding: 10px 12px`, radius-s, ícono 18px (lucide-react, nunca emoji) +
+  label 13.5px bold.
+- Activo: fondo `--cian-bg`, texto cian. Deshabilitado (pestañas de fases futuras, sin implementar
+  aún): opacidad 0.55, cursor default, sin hover, sin `onClick`.
+- **Estado actual (Fase 2):** 2 ítems habilitados — **Usuarios** (ícono `Users`) y **Catálogo**
+  (ícono `LayoutGrid`). El resto de ítems (Esquemas de evaluación — `ClipboardList`, Resultados —
+  `BarChart3`, Solicitudes — `Inbox`) se muestran pero permanecen deshabilitados hasta sus
+  respectivas fases — mismo comportamiento que ya tenía "Catálogo" en la fase anterior.
 
 ### Cards de usuario (`user-card`)
 - Fondo blanco, borde sutil, radius-l, padding 18px, shadow-sm, hover → borde cian (sin transform).
@@ -184,14 +222,76 @@ de badges normales.
 
 ---
 
+## 6bis. Catálogo — pantallas y componentes (Fase 2)
+
+### Lista de módulos (`admin-catalog`)
+- Encabezado de página (`page-head`) + barra de búsqueda (`search-wrap`, un solo input ancho
+  completo, placeholder "Buscar módulo, submódulo o caso de prueba...") que filtra en vivo.
+- Toolbar con botón primario a la derecha: **"+ Nuevo módulo"**.
+- Grid de `mod-card` (`repeat(auto-fill, minmax(240px,1fr))`, gap 14-16px): cada card tiene el
+  `mod-icon` (42×42px, ver mapa de íconos arriba), nombre del módulo, versión (o "sin versión"),
+  y un renglón secundario "`N` submódulos · `M` casos de prueba". Clic en la card abre el detalle.
+- Cuando hay texto en el buscador, la vista cambia a una tabla plana de resultados (ítem, módulo ›
+  submódulo, acción eliminar) en vez del grid de cards — igual que en la maqueta.
+
+### Detalle de módulo (`admin-catalog-detail`)
+- `breadcrumbs`: "Catálogo / {nombre del módulo}".
+- Encabezado con `mod-icon` + nombre + versión + conteo de submódulos.
+- Toolbar: botones **"+ SubMódulo"** (outline) y **"Eliminar módulo"** (danger) a la derecha.
+- Fila de `sub-pill` (una por submódulo, con conteo de casos entre paréntesis) — clic en una pill
+  la marca `active` (fondo cian sólido) y despliega su panel de casos de prueba debajo.
+
+### Panel de un submódulo (al hacer clic en su pill)
+- Header del panel: nombre del submódulo a la izquierda; a la derecha, en este orden, **tres**
+  acciones (antes había dos — se agrega la del medio):
+  1. **"+ Clasificador"** (`btn-outline btn-sm`) — nuevo botón de esta fase.
+  2. **"+ Caso de Prueba"** (`btn-outline btn-sm`) — antes decía "+ Ítem".
+  3. Ícono eliminar submódulo (`icon-btn`, ✕ → reemplazar por ícono `Trash2` o `X` de lucide).
+- Debajo del header, el contenido se organiza en dos posibles bloques (pueden coexistir):
+  1. **Casos sin clasificador**, listados directo como `item-row` (igual que la maqueta).
+  2. **Por cada clasificador** del submódulo: un sub-encabezado con el nombre del clasificador
+     (texto 12px bold, color `--gray`, `text-transform: uppercase`, `letter-spacing: 0.02em` —
+     mismo tratamiento visual que `.sub-block-title` en la maqueta) seguido de sus `item-row`
+     correspondientes. Si un submódulo no tiene ningún clasificador, este bloque no aparece — el
+     panel se ve exactamente igual que en la maqueta original.
+- Cada `item-row` (caso de prueba) muestra el nombre y, al hover, dos `icon-btn`: editar (`Pencil`)
+  y eliminar (`Trash2`) — reemplazando los íconos ✎/✕ de la maqueta.
+- Si el submódulo no tiene ningún caso de prueba todavía, mostrar el mismo estado vacío de texto
+  gris que ya usa la maqueta ("Todavía no hay casos de prueba en este submódulo.").
+
+### Modales
+- **Nuevo módulo / Editar módulo:** campos `nombre` (requerido), `versión` (opcional), `conjunto`
+  (opcional — input de texto libre, ej. "Vista", "Head Office (HO)"). Error inline si el nombre ya
+  existe (case-insensitive) → mismo patrón visual que `error-msg` en los modales de usuario.
+- **Nuevo SubMódulo / Editar SubMódulo:** un solo campo `nombre` (requerido). Sin validación de
+  duplicados (los nombres de submódulo pueden repetirse).
+- **Nuevo Clasificador / Editar Clasificador:** un solo campo `nombre` (requerido), asociado al
+  submódulo actualmente abierto. Sin validación de duplicados.
+- **Nuevo Caso de Prueba / Editar Caso de Prueba:** campo `nombre` (requerido) + selector
+  `Clasificador` (`<select>`) con opción **"Sin clasificador"** por defecto más las clasificaciones
+  existentes de ese submódulo. Si el submódulo no tiene ningún clasificador creado, el selector no
+  se muestra en absoluto (no tiene sentido mostrarlo vacío).
+- **Confirmación de eliminar módulo/submódulo:** usar el mismo patrón de `confirm()` o modal de
+  advertencia (`modal-warn-icon`) ya presente en la maqueta, dejando claro en el texto que se
+  borrará todo lo que contiene (cascada).
+- **Confirmación de eliminar clasificador:** el texto de confirmación debe aclarar explícitamente
+  que **los casos de prueba NO se eliminan**, solo quedan sin clasificador — para que el admin no
+  piense que va a perder información. Ej.: *"¿Eliminar este clasificador? Los casos de prueba que
+  agrupa no se eliminan, solo dejarán de estar agrupados."*
+
+---
+
 ## 7. Lo que NO se debe cambiar
 
 - El flujo de pantallas y su orden (landing → login → cambio de clave obligatorio → panel admin /
-  home de certificador).
+  home de certificador; y dentro del panel admin: lista de módulos → detalle de módulo → panel de
+  submódulo con sus casos de prueba).
 - La organización interna de cada pantalla (qué elemento va arriba, al lado de qué, estructura de
-  grid/flex tal como está descrita arriba).
+  grid/flex tal como está descrita arriba, incluyendo la sección 6bis del Catálogo).
 - La paleta de colores de la sección 1 — cero colores nuevos.
-- Los textos y labels existentes.
+- Los textos y labels existentes, **excepto** los renombrados explícitamente para esta fase:
+  "Sección" → **"SubMódulo"**, "+ Ítem" → **"+ Caso de Prueba"**, "Eliminar sección" →
+  **"Eliminar submódulo"**. No renombres nada más por tu cuenta.
 
 ## 8. Lo que SÍ se puede mejorar
 
@@ -201,5 +301,18 @@ de badges normales.
 - Accesibilidad (contraste AA, aria-labels, foco por teclado) sin tocar la paleta.
 - Tipografía: se puede usar `Inter` en vez del stack Arial/Helvetica si mejora la legibilidad,
   manteniendo los tamaños en px de la tabla de la sección 2.
+
+---
+
+## 9. Checklist final — Fase 2 (Catálogo)
+
+- [ ] ¿Ningún ícono es un emoji? (sidebar, mod-icon, item-row, botones — todos SVG con `size={}`)
+- [ ] ¿El sidebar tiene exactamente 2 ítems habilitados (Usuarios, Catálogo) y el resto deshabilitado?
+- [ ] ¿La UI dice "SubMódulo" y "+ Caso de Prueba" en vez de "Sección" / "+ Ítem"?
+- [ ] ¿Existe el botón "+ Clasificador" dentro del panel de cada submódulo?
+- [ ] ¿Los casos de prueba sin clasificador se muestran sueltos, y los que sí tienen se agrupan bajo
+      su clasificador, sin romper el layout cuando un submódulo no tiene ninguno?
+- [ ] ¿El modal de eliminar clasificador aclara que los casos de prueba no se borran?
+- [ ] ¿Todos los colores/radios/sombras siguen siendo los de las secciones 1 y 3 (ningún valor nuevo)?
 
 ---

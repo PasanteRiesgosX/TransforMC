@@ -593,3 +593,12 @@ tr.row-hover:hover { background: var(--bg); }
   .content { padding: 20px; }
   .topbar { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Utilities */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Users, 
-  BookOpen,
+  LayoutGrid,
   ClipboardList,
   BarChart3,
   FileText
@@ -57,7 +57,7 @@ export const AdminLayout: React.FC = () => {
       {/* Body Shell */}
       <div className="flex flex-1 min-h-[calc(100vh-60px)]">
         {/* Sidebar */}
-        <aside className="w-[224px] bg-[var(--card)] border-r border-[var(--border)] p-[18px_12px] flex-shrink-0 hidden min-[860px]:block">
+        <aside className="w-[224px] bg-[var(--card)] border-r border-[var(--border)] p-[18px_12px] flex-shrink-0">
           <nav className="flex flex-col">
             <NavLink
               to="/admin/usuarios"
@@ -73,10 +73,19 @@ export const AdminLayout: React.FC = () => {
               Usuarios
             </NavLink>
 
-            <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
-              <BookOpen size={18} />
+            <NavLink
+              to="/admin/catalogo"
+              className={({ isActive }) =>
+                `flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] transition-colors ${
+                  isActive 
+                    ? 'bg-[var(--cian-bg)] text-[var(--cian)]' 
+                    : 'text-[var(--gray)] hover:bg-[var(--bg)]'
+                }`
+              }
+            >
+              <LayoutGrid size={18} />
               Catálogo
-            </div>
+            </NavLink>
 
             <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
               <ClipboardList size={18} />
