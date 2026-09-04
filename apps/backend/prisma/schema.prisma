@@ -19,86 +19,264 @@ model User {
   cargo              String
   email              String    @unique
   passwordHash       String
-  rol                String    // Usamos String por compatibilidad futura con SQL Server (no enum)
+  rol                String // Usamos String por compatibilidad futura con SQL Server (no enum)
   mustChangePassword Boolean   @default(true)
   activo             Boolean   @default(true)
   lastLoginAt        DateTime?
   createdAt          DateTime  @default(now())
   createdById        String?
-  
+
   // Relación opcional para auditoría de quién creó a este usuario
-  createdBy          User?     @relation("UserCreator", fields: [createdById], references: [id])
-  createdUsers       User[]    @relation("UserCreator")
-  modulosCreados     Modulo[]
+  createdBy      User?    @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers   User[]   @relation("UserCreator")
+  modulosCreados Modulo[]
+
+  // Fase 3 — Esquemas de evaluación
+  esquemasCreados   Esquema[]            @relation("EsquemaCreator")
+  paquetesAsignados PaqueteResponsable[]
+
+  // Fase 4 — Certificaciones (resultados por ítem)
+  certificaciones ResultadoItem[] @relation("ResultadoCertificador")
+
+  // Fase 5 — Envíos de certificación (uno por esquema que el usuario cierra)
+  enviosCertificacion EnvioCertificacion[]
 
   @@map("users")
 }
 
 model Modulo {
-  id            String      @id @default(uuid())
-  nombre        String      @unique
+  id            String   @id @default(uuid())
+  nombre        String   @unique
   version       String?
   conjunto      String?
-  orden         Int         @default(0)
-  activo        Boolean     @default(true)
+  orden         Int      @default(0)
+  activo        Boolean  @default(true)
   creadoPorId   String?
-  creadoPor     User?       @relation(fields: [creadoPorId], references: [id])
-  creadoEn      DateTime    @default(now())
-  actualizadoEn DateTime    @updatedAt
+  creadoPor     User?    @relation(fields: [creadoPorId], references: [id])
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  subModulos    SubModulo[]
+  subModulos SubModulo[]
 
   @@index([orden])
 }
 
 model SubModulo {
-  id            String        @id @default(uuid())
-  nombre        String
-  orden         Int           @default(0)
+  id     String @id @default(uuid())
+  nombre String
+  orden  Int    @default(0)
 
-  moduloId      String
-  modulo        Modulo        @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  moduloId String
+  modulo   Modulo @relation(fields: [moduloId], references: [id], onDelete: Cascade)
 
-  creadoEn      DateTime      @default(now())
-  actualizadoEn DateTime      @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   clasificadores Clasificador[]
-  casosPrueba   CasoPrueba[]
+  casosPrueba    CasoPrueba[]
 
   @@index([moduloId, orden])
 }
 
 model Clasificador {
-  id            String       @id @default(uuid())
-  nombre        String
-  orden         Int          @default(0)
+  id     String @id @default(uuid())
+  nombre String
+  orden  Int    @default(0)
 
-  subModuloId   String
-  subModulo     SubModulo    @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
+  subModuloId String
+  subModulo   SubModulo @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
 
-  creadoEn      DateTime     @default(now())
+  creadoEn DateTime @default(now())
 
-  casosPrueba   CasoPrueba[]
+  casosPrueba CasoPrueba[]
 
   @@index([subModuloId, orden])
 }
 
 model CasoPrueba {
-  id             String        @id @default(uuid())
-  nombre         String
-  orden          Int           @default(0)
+  id     String @id @default(uuid())
+  nombre String
+  orden  Int    @default(0)
 
-  subModuloId    String
-  subModulo      SubModulo     @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
+  subModuloId String
+  subModulo   SubModulo @relation(fields: [subModuloId], references: [id], onDelete: Cascade)
 
   clasificadorId String?
   clasificador   Clasificador? @relation(fields: [clasificadorId], references: [id], onDelete: SetNull)
 
-  creadoEn       DateTime      @default(now())
-  actualizadoEn  DateTime      @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Fase 3 — un ítem del catálogo puede formar parte de paquetes (en distintos esquemas)
+  paqueteItems PaqueteItem[]
 
   @@index([subModuloId, orden])
   @@index([clasificadorId])
 }
 
+// ==========================================================================
+// FASE 3 — ESQUEMAS DE EVALUACIÓN
+// Un Esquema agrupa lo que se va a certificar en un ambiente (Pruebas |
+// Producción), organizado en Paquetes de ítems del catálogo, cada uno
+// asignado a cero o más usuarios responsables (rol CERTIFIER).
+// ==========================================================================
 
+model Esquema {
+  id       String @id @default(uuid())
+  nombre   String @default("Esquema sin nombre")
+  // "Pruebas" | "Producción". String por compatibilidad futura con SQL Server (no enum).
+  ambiente String @default("Pruebas")
+
+  creadoPorId String?
+  creadoPor   User?   @relation("EsquemaCreator", fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  paquetes     Paquete[]
+  // Relación inversa del refuerzo de unicidad ítem-por-esquema (ver PaqueteItem)
+  paqueteItems PaqueteItem[]
+  // Fase 5 — envíos de certificación de este esquema (uno por certificador)
+  envios       EnvioCertificacion[]
+
+  @@index([creadoEn])
+}
+
+model Paquete {
+  id     String @id @default(uuid())
+  nombre String
+  orden  Int    @default(0)
+
+  esquemaId String
+  esquema   Esquema @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  items        PaqueteItem[]
+  responsables PaqueteResponsable[]
+
+  @@index([esquemaId, orden])
+}
+
+model PaqueteItem {
+  id String @id @default(uuid())
+
+  paqueteId String
+  paquete   Paquete @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+
+  casoPruebaId String
+  casoPrueba   CasoPrueba @relation(fields: [casoPruebaId], references: [id], onDelete: Cascade)
+
+  // esquemaId denormalizado: refuerza a nivel de BD que un mismo ítem del
+  // catálogo NO puede pertenecer a dos paquetes DENTRO DEL MISMO esquema.
+  // Entre esquemas distintos sí puede repetirse.
+  esquemaId String
+  esquema   Esquema @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
+
+  creadoEn DateTime @default(now())
+
+  // Fase 4 — un PaqueteItem tiene, como mucho, un ResultadoItem (1:1 opcional)
+  resultado ResultadoItem?
+
+  @@unique([esquemaId, casoPruebaId])
+  @@index([paqueteId])
+  @@index([casoPruebaId])
+}
+
+model PaqueteResponsable {
+  paqueteId String
+  paquete   Paquete @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+
+  usuarioId String
+  usuario   User   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  asignadoEn DateTime @default(now())
+
+  @@id([paqueteId, usuarioId])
+  @@index([usuarioId])
+}
+
+// ==========================================================================
+// FASE 4 — CERTIFICACIONES (RESULTADOS POR ÍTEM)
+// Cada PaqueteItem del esquema puede tener, como mucho, un ResultadoItem que
+// representa la certificación de ese caso de prueba dentro del contexto de un
+// paquete/esquema concreto. La relación es 1:1 opcional: si no hay fila, el
+// ítem se considera "pendiente" (sin revisar todavía). El campo `estado`
+// almacena la decisión del certificador: "aprobado" (funciona bien),
+// "rechazado" (con falla) o "pendiente" (marcado explícitamente como
+// pendiente por un guardado de progreso parcial).
+// Este modelo NO participa en la escritura de la UI en Fase 4 — la sección
+// Resultados solo lo LEE para poblar semáforos, agregaciones y tablas. La
+// escritura vive en la UI de certificador (Fase 5).
+// ==========================================================================
+
+model ResultadoItem {
+  id String @id @default(uuid())
+
+  // Relación 1:1 con PaqueteItem — un ítem del esquema tiene, como mucho, un
+  // resultado (no se puede certificar dos veces "el mismo item del mismo esquema").
+  paqueteItemId String      @unique
+  paqueteItem   PaqueteItem @relation(fields: [paqueteItemId], references: [id], onDelete: Cascade)
+
+  // Pregunta 1 — "¿Funciona correctamente en este ambiente?"
+  // "pendiente" (sin responder) | "aprobado" (sí, funciona) | "rechazado" (no funciona).
+  // String por compatibilidad futura con SQL Server (no enum), como el resto del schema.
+  estado String @default("pendiente")
+
+  // Pregunta 2 — "¿Notaste cambios frente a la versión anterior?"
+  // NULL = sin responder · true = sí, cambió · false = no, sigue igual.
+  // Es NULLABLE a propósito: sin eso no se puede distinguir "todavía no contestó"
+  // de "contestó que sigue igual". Independiente del estado: un caso puede quedar
+  // "aprobado" y aun así con cambios.
+  cambio Boolean?
+
+  // Comentarios del certificador. Se piden según la combinación de respuestas:
+  //   funciona  + sigue igual → ninguno
+  //   funciona  + sí cambió   → comentarioCambio ("Cuéntanos qué pasó")
+  //   no funciona + sigue igual → comentarioFalla ("¿Qué no funciona?")
+  //   no funciona + sí cambió   → los DOS
+  // El backend los normaliza: si la respuesta deja de pedir un comentario, se
+  // limpia, para que Resultados nunca muestre un texto que ya no corresponde.
+  comentarioFalla  String? @db.Text
+  comentarioCambio String? @db.Text
+
+  // Quién certificó (nullable porque el usuario puede haber sido eliminado
+  // después de dejar la certificación; queremos conservar la fila).
+  certificadoPorId String?
+  certificadoPor   User?   @relation("ResultadoCertificador", fields: [certificadoPorId], references: [id], onDelete: SetNull)
+
+  // Fechas de trazabilidad
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  // Se llena solo cuando el estado pasa de "pendiente" a aprobado/rechazado
+  certificadoEn DateTime?
+
+  @@index([estado])
+  @@index([certificadoPorId])
+}
+
+// ==========================================================================
+// FASE 5 — ENVÍO DE CERTIFICACIÓN
+// Cuando un certificador pulsa "Enviar", su trabajo sobre ESE esquema queda
+// consolidado: sigue viendo todo, pero ya no puede modificar ninguna respuesta.
+// El envío es por (esquema, usuario): dos responsables del mismo esquema envían
+// por separado, y uno no bloquea al otro.
+// La reapertura (poder volver a editar tras enviar) es la Fase 6.
+// ==========================================================================
+
+model EnvioCertificacion {
+  id String @id @default(uuid())
+
+  esquemaId String
+  esquema   Esquema @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
+
+  usuarioId String
+  usuario   User   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  enviadoEn DateTime @default(now())
+
+  // Un usuario envía una sola vez por esquema.
+  @@unique([esquemaId, usuarioId])
+  @@index([usuarioId])
+}

@@ -87,15 +87,33 @@ export const AdminLayout: React.FC = () => {
               Catálogo
             </NavLink>
 
-            <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
+            <NavLink
+              to="/admin/esquemas"
+              className={({ isActive }) =>
+                `flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] transition-colors ${
+                  isActive
+                    ? 'bg-[var(--cian-bg)] text-[var(--cian)]'
+                    : 'text-[var(--gray)] hover:bg-[var(--bg)]'
+                }`
+              }
+            >
               <ClipboardList size={18} />
               Esquemas de evaluación
-            </div>
+            </NavLink>
 
-            <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
+            <NavLink
+              to="/admin/resultados"
+              className={({ isActive }) =>
+                `flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] transition-colors ${
+                  isActive
+                    ? 'bg-[var(--cian-bg)] text-[var(--cian)]'
+                    : 'text-[var(--gray)] hover:bg-[var(--bg)]'
+                }`
+              }
+            >
               <BarChart3 size={18} />
               Resultados
-            </div>
+            </NavLink>
 
             <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
               <FileText size={18} />
