@@ -36,10 +36,11 @@ model User {
   paquetesAsignados PaqueteResponsable[]
 
   // Fase 4 — Certificaciones (resultados por ítem)
-  certificaciones ResultadoItem[] @relation("ResultadoCertificador")
+  certificaciones           ResultadoItem[]      @relation("ResultadoCertificador")
+  certificacionesHistoricas ResultadoHistorico[] @relation("HistoricoCertificador")
 
   // Fase 5 — Envíos de certificación (uno por esquema que el usuario cierra)
-  enviosCertificacion EnvioCertificacion[]
+  enviosCertificacion   EnvioCertificacion[]
   solicitudesReapertura SolicitudReapertura[]
 
   @@map("users")
@@ -147,6 +148,12 @@ model Esquema {
 
   solicitudesReapertura SolicitudReapertura[]
 
+  // Fase 7 — Versionamiento de Esquemas por Certificadores
+  version            Int       @default(1)
+  esquemaVersionDeId String?
+  esquemaVersionDe   Esquema?  @relation("EsquemaVersion", fields: [esquemaVersionDeId], references: [id], onDelete: SetNull)
+  esquemaVersiones   Esquema[] @relation("EsquemaVersion")
+
   @@index([creadoEn])
 }
 
@@ -185,7 +192,8 @@ model PaqueteItem {
   creadoEn DateTime @default(now())
 
   // Fase 4 — un PaqueteItem tiene, como mucho, un ResultadoItem (1:1 opcional)
-  resultado ResultadoItem?
+  resultado            ResultadoItem?
+  resultadosHistoricos ResultadoHistorico[]
 
   @@unique([esquemaId, casoPruebaId])
   @@index([paqueteId])
@@ -260,6 +268,9 @@ model ResultadoItem {
   // Se llena solo cuando el estado pasa de "pendiente" a aprobado/rechazado
   certificadoEn DateTime?
 
+  // Versionamiento: número secuencial de versión (1 = original, 2 = primera re-versión, etc.)
+  version Int @default(1)
+
   @@index([estado])
   @@index([certificadoPorId])
 }
@@ -290,15 +301,41 @@ model EnvioCertificacion {
 }
 
 model SolicitudReapertura {
-  id String @id @default(uuid())
-  esquemaId String
-  esquema Esquema @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
-  usuarioId String
-  usuario User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  estado String @default("PENDING")
-  motivo String
+  id             String   @id @default(uuid())
+  esquemaId      String
+  esquema        Esquema  @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
+  usuarioId      String
+  usuario        User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  estado         String   @default("PENDING")
+  motivo         String
   respuestaAdmin String?
-  creadoEn DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
 }
 
+// ==========================================
+// FASE 6 — VERSIONAMIENTO DE RESULTADOS
+// ==========================================
+
+model ResultadoHistorico {
+  id String @id @default(uuid())
+
+  paqueteItemId String
+  paqueteItem   PaqueteItem @relation(fields: [paqueteItemId], references: [id], onDelete: Cascade)
+
+  version Int
+
+  estado           String
+  cambio           Boolean?
+  comentarioFalla  String?  @db.Text
+  comentarioCambio String?  @db.Text
+
+  certificadoPorId String?
+  certificadoPor   User?   @relation("HistoricoCertificador", fields: [certificadoPorId], references: [id], onDelete: SetNull)
+
+  creadoEn      DateTime
+  certificadoEn DateTime?
+  archivadoEn   DateTime  @default(now())
+
+  @@index([paqueteItemId])
+}

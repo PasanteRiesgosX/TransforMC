@@ -186,6 +186,62 @@ export const CertifierModule: React.FC = () => {
     }, DEBOUNCE_MS);
   };
 
+  /** Versionar — manda el POST y actualiza localmente con la respuesta. */
+  const handleVersionar = async (caso: CasoCertificable) => {
+    setGuardado('saving');
+    try {
+      const res = await axios.post(
+        `${API}/api/mis-certificaciones/items/${caso.paqueteItemId}/versionar`,
+        {},
+        authHeaders(),
+      );
+      
+      setData((prev) => {
+        if (!prev) return prev;
+        const subModulos = prev.subModulos.map((sub) => ({
+          ...sub,
+          casos: sub.casos.map((c) =>
+            c.paqueteItemId === caso.paqueteItemId
+              ? { 
+                  ...c, 
+                  ...res.data, // Pone estado en pendiente, actualiza version y versionesAnteriores
+                }
+              : c,
+          ),
+        }));
+
+        // Recalcular métricas ya que la versión activa vuelve a ser pendiente
+        const todos = subModulos.flatMap((s) => s.casos);
+        const ok = todos.filter((c) => c.estado === 'aprobado').length;
+        const fail = todos.filter((c) => c.estado === 'rechazado').length;
+        const done = ok + fail;
+        const total = todos.length;
+        const incompletos = todos.filter((c) => !casoListo(c)).length;
+
+        return {
+          ...prev,
+          subModulos,
+          progreso: {
+            total,
+            ok,
+            fail,
+            done,
+            pendientes: total - done,
+            pct: total ? Math.round((done / total) * 100) : 0,
+          },
+          envio: prev.envio.enviado
+            ? prev.envio
+            : { ...prev.envio, incompletos, puedeEnviar: incompletos === 0 && total > 0 },
+        };
+      });
+      setGuardado('saved');
+      showToast('Nueva versión creada. La anterior ha sido archivada.');
+    } catch (err: any) {
+      setGuardado('error');
+      showToast(readError(err, 'No se pudo versionar el caso'));
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-[var(--grayLight)]">Cargando casos de prueba...</div>;
   }
@@ -271,6 +327,7 @@ export const CertifierModule: React.FC = () => {
                 onEstado={(estado) => handleEstado(caso, estado)}
                 onCambio={(cambio) => handleCambio(caso, cambio)}
                 onComentario={(campo, valor) => handleComentario(caso, campo, valor)}
+                onVersionar={() => handleVersionar(caso)}
               />
             );
           })}

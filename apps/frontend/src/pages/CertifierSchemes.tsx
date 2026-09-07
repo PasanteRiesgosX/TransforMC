@@ -69,61 +69,94 @@ export const CertifierSchemes: React.FC = () => {
             const enviado = envio.enviado;
             const anillo = enviado ? 'var(--teal)' : p.pct === 100 ? 'var(--naranjaFuerte)' : 'var(--cian)';
 
-            return (
-              <div key={sch.id} className="campaign-card">
-                <div className="campaign-card-top">
-                  <div className="campaign-ring-wrap">
-                    <CircularProgress pct={p.pct} size={64} color={anillo} />
-                    <div className="campaign-ring-pct">{p.pct}%</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="campaign-title">{sch.nombre}</div>
-                    <div className="campaign-meta">
-                      <EnvIcon size={13} />
-                      {sch.ambiente} · {p.total} caso{p.total !== 1 ? 's' : ''} asignado
-                      {p.total !== 1 ? 's' : ''}
+              const handleVersionar = async () => {
+                if (!enviado) {
+                  showToast('Debes haber enviado tu certificación de este esquema para poder versionarlo.');
+                  return;
+                }
+                
+                try {
+                  const res = await axios.post(`${API}/api/mis-certificaciones/${sch.id}/versionar-esquema`, {}, authHeaders());
+                  showToast(res.data.message || 'Esquema versionado exitosamente');
+                  // Refetch esquemas
+                  const freshRes = await axios.get(`${API}/api/mis-certificaciones`, authHeaders());
+                  setEsquemas(freshRes.data);
+                } catch (err: any) {
+                  showToast(readError(err, 'Error al versionar el esquema'));
+                }
+              };
+
+              return (
+                <div key={sch.id} className="campaign-card">
+                  <div className="campaign-card-top">
+                    <div className="campaign-ring-wrap">
+                      <CircularProgress pct={p.pct} size={64} color={anillo} />
+                      <div className="campaign-ring-pct">{p.pct}%</div>
                     </div>
-                  </div>
-                  <span className={`tag ${isProd ? 'tag-magenta' : 'tag-cian'}`}>
-                    {sch.ambiente}
-                  </span>
-                </div>
-
-                <div className="campaign-stats">
-                  {/* Distintivo de esquema ya enviado — la tarjeta sigue visible */}
-                  {enviado && (
-                    <span className="tag tag-teal">
-                      <Check size={12} />
-                      COMPLETADO
+                    <div className="flex-1 min-w-0">
+                      <div className="campaign-title flex items-center gap-2">
+                        {sch.nombre}
+                        {sch.version > 1 && (
+                          <span className="text-[10px] font-bold text-[var(--teal)] bg-[#e6f4f1] px-2 py-0.5 rounded-full">
+                            v{sch.version}.0
+                          </span>
+                        )}
+                      </div>
+                      <div className="campaign-meta">
+                        <EnvIcon size={13} />
+                        {sch.ambiente} · {p.total} caso{p.total !== 1 ? 's' : ''} asignado
+                        {p.total !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                    <span className={`tag ${isProd ? 'tag-magenta' : 'tag-cian'}`}>
+                      {sch.ambiente}
                     </span>
-                  )}
-                  <span className="tag tag-teal">{p.ok} bien</span>
-                  <span className={`tag ${p.fail > 0 ? 'tag-rojo' : 'tag-neutral'}`}>
-                    {p.fail} con fallas
-                  </span>
-                  {!enviado && <span className="tag tag-neutral">{p.pendientes} pendientes</span>}
-                </div>
-
-                {enviado && envio.enviadoEn && (
-                  <div className="text-[11px] text-[var(--grayLight)] -mt-[8px]">
-                    Enviado el {new Date(envio.enviadoEn).toLocaleString('es-EC')}
                   </div>
-                )}
 
-                <button
-                  className={`btn ${enviado ? 'btn-outline' : 'btn-primary'} campaign-cta`}
-                  onClick={() => navigate(`/certificador/esquemas/${sch.id}`)}
-                >
-                  {enviado
-                    ? 'Ver mis respuestas'
-                    : p.done > 0
-                      ? 'Continuar certificando'
-                      : 'Empezar a certificar'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="campaign-stats">
+                    {/* Distintivo de esquema ya enviado — la tarjeta sigue visible */}
+                    {enviado && (
+                      <span className="tag tag-teal">
+                        <Check size={12} />
+                        COMPLETADO
+                      </span>
+                    )}
+                    <span className="tag tag-teal">{p.ok} bien</span>
+                    <span className={`tag ${p.fail > 0 ? 'tag-rojo' : 'tag-neutral'}`}>
+                      {p.fail} con fallas
+                    </span>
+                    {!enviado && <span className="tag tag-neutral">{p.pendientes} pendientes</span>}
+                  </div>
+
+                  {enviado && envio.enviadoEn && (
+                    <div className="text-[11px] text-[var(--grayLight)] -mt-[8px]">
+                      Enviado el {new Date(envio.enviadoEn).toLocaleString('es-EC')}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      className={`btn ${enviado ? 'btn-outline' : 'btn-primary'} campaign-cta flex-1`}
+                      onClick={() => navigate(`/certificador/esquemas/${sch.id}`)}
+                    >
+                      {enviado
+                        ? 'Ver mis respuestas'
+                        : p.done > 0
+                          ? 'Continuar certificando'
+                          : 'Empezar a certificar'}
+                    </button>
+                    <button
+                      className={`btn ${enviado ? 'btn-outline hover:bg-[#e6f4f1] hover:text-[var(--teal)] hover:border-[var(--teal)]' : 'btn-outline opacity-50'} transition-colors px-3`}
+                      title="Crear una nueva versión de este esquema"
+                      onClick={handleVersionar}
+                    >
+                      Versionar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
       )}
     </div>
   );

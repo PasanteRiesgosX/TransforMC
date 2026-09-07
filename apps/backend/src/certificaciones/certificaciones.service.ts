@@ -175,7 +175,7 @@ export class CertificacionesService {
             },
           },
           esquema: {
-            select: { id: true, nombre: true, ambiente: true, creadoEn: true },
+            select: { id: true, nombre: true, ambiente: true, creadoEn: true, version: true, esquemaVersionDeId: true },
           },
         },
       }),
@@ -196,7 +196,16 @@ export class CertificacionesService {
     }
 
     return [...grupos.values()]
-      .sort((a, b) => +new Date(b.esquema.creadoEn) - +new Date(a.esquema.creadoEn))
+      .sort((a, b) => {
+        const rootA = a.esquema.esquemaVersionDeId || a.esquema.id;
+        const rootB = b.esquema.esquemaVersionDeId || b.esquema.id;
+        if (rootA !== rootB) {
+          const createdAtA = rootA === a.esquema.id ? a.esquema.creadoEn : grupos.get(rootA)?.esquema.creadoEn || a.esquema.creadoEn;
+          const createdAtB = rootB === b.esquema.id ? b.esquema.creadoEn : grupos.get(rootB)?.esquema.creadoEn || b.esquema.creadoEn;
+          return +new Date(createdAtB) - +new Date(createdAtA);
+        }
+        return a.esquema.version - b.esquema.version;
+      })
       .map((g) => {
         const enviadoEn = enviadoPor.get(g.esquema.id) ?? null;
         const incompletos = g.resultados.filter((r) => !this.casoListo(r)).length;
@@ -205,6 +214,8 @@ export class CertificacionesService {
           nombre: g.esquema.nombre,
           ambiente: g.esquema.ambiente,
           creadoEn: g.esquema.creadoEn,
+          version: g.esquema.version,
+          esquemaVersionDeId: g.esquema.esquemaVersionDeId,
           progreso: this.progreso(g.resultados),
           envio: {
             enviado: !!enviadoEn,
@@ -367,7 +378,19 @@ export class CertificacionesService {
             comentarioFalla: true,
             comentarioCambio: true,
             actualizadoEn: true,
+            version: true,
           },
+        },
+        resultadosHistoricos: {
+          orderBy: { version: 'desc' },
+          select: {
+            version: true,
+            estado: true,
+            cambio: true,
+            comentarioFalla: true,
+            comentarioCambio: true,
+            certificadoEn: true,
+          }
         },
       },
     });
@@ -401,6 +424,8 @@ export class CertificacionesService {
         cambio: it.resultado?.cambio ?? null,
         comentarioFalla: it.resultado?.comentarioFalla ?? null,
         comentarioCambio: it.resultado?.comentarioCambio ?? null,
+        version: it.resultado?.version ?? 1,
+        versionesAnteriores: it.resultadosHistoricos ?? [],
       });
       subs.set(sub.id, g);
     }
@@ -496,6 +521,7 @@ export class CertificacionesService {
         comentarioFalla: true,
         comentarioCambio: true,
         actualizadoEn: true,
+        version: true,
       },
     });
 
@@ -587,6 +613,162 @@ export class CertificacionesService {
       incompletos: 0,
       puedeEnviar: false,
       mensaje: `Enviaste tu certificación de "${esquema.nombre}". Tus respuestas quedaron consolidadas.`,
+    };
+  }
+
+  // ==========================================
+  // VERSIONAMIENTO
+  // ==========================================
+
+  async versionarItem(usuarioId: string, paqueteItemId: string) {
+    const item = await this.prisma.paqueteItem.findFirst({
+      where: this.itemsDelUsuario(usuarioId, { id: paqueteItemId }),
+      select: { id: true, esquemaId: true, resultado: true },
+    });
+    if (!item) {
+      throw new ForbiddenException('Este caso de prueba no está asignado a ti.');
+    }
+
+    await this.asegurarNoEnviado(usuarioId, item.esquemaId);
+
+    const activo = item.resultado;
+    if (!activo || activo.estado === 'pendiente') {
+      throw new BadRequestException('No puedes versionar un caso de prueba que está sin responder.');
+    }
+
+    const [, actualizado] = await this.prisma.$transaction([
+      this.prisma.resultadoHistorico.create({
+        data: {
+          paqueteItemId,
+          version: activo.version,
+          estado: activo.estado,
+          cambio: activo.cambio,
+          comentarioFalla: activo.comentarioFalla,
+          comentarioCambio: activo.comentarioCambio,
+          certificadoPorId: activo.certificadoPorId,
+          creadoEn: activo.creadoEn,
+          certificadoEn: activo.certificadoEn,
+        },
+      }),
+      this.prisma.resultadoItem.update({
+        where: { paqueteItemId },
+        data: {
+          version: { increment: 1 },
+          estado: 'pendiente',
+          cambio: null,
+          comentarioFalla: null,
+          comentarioCambio: null,
+          certificadoPorId: null,
+          certificadoEn: null,
+        },
+        select: {
+          estado: true,
+          cambio: true,
+          comentarioFalla: true,
+          comentarioCambio: true,
+          actualizadoEn: true,
+          version: true,
+        },
+      }),
+    ]);
+
+    const historicos = await this.prisma.resultadoHistorico.findMany({
+      where: { paqueteItemId },
+      orderBy: { version: 'desc' },
+      select: {
+        version: true,
+        estado: true,
+        cambio: true,
+        comentarioFalla: true,
+        comentarioCambio: true,
+        certificadoEn: true,
+      },
+    });
+
+    return {
+      paqueteItemId,
+      ...actualizado,
+      versionesAnteriores: historicos,
+    };
+  }
+
+  // ==========================================
+  // FASE 7 - VERSIONAMIENTO DE ESQUEMA COMPLETO
+  // ==========================================
+
+  async versionarEsquema(usuarioId: string, esquemaId: string) {
+    const original = await this.prisma.esquema.findUnique({
+      where: { id: esquemaId },
+      include: {
+        paquetes: {
+          include: {
+            items: true,
+            responsables: true,
+          }
+        },
+      }
+    });
+
+    if (!original) {
+      throw new NotFoundException('Esquema no encontrado.');
+    }
+
+    // Verificar si el usuario ha enviado la certificación
+    const envio = await this.prisma.envioCertificacion.findUnique({
+      where: { esquemaId_usuarioId: { esquemaId, usuarioId } },
+    });
+    if (!envio) {
+      throw new BadRequestException('Debes haber enviado tu certificación de este esquema para poder versionarlo.');
+    }
+
+    const nuevaVersion = original.version + 1;
+
+    // Clonar esquema en Prisma transaction
+    const [nuevoEsquema] = await this.prisma.$transaction(async (tx) => {
+      const creado = await tx.esquema.create({
+        data: {
+          nombre: original.nombre,
+          ambiente: original.ambiente,
+          creadoPorId: original.creadoPorId,
+          version: nuevaVersion,
+          esquemaVersionDeId: original.esquemaVersionDeId || original.id,
+        },
+      });
+
+      for (const paquete of original.paquetes) {
+        const nuevoPaquete = await tx.paquete.create({
+          data: {
+            nombre: paquete.nombre,
+            orden: paquete.orden,
+            esquemaId: creado.id,
+          },
+        });
+
+        if (paquete.responsables.length > 0) {
+          await tx.paqueteResponsable.createMany({
+            data: paquete.responsables.map((r) => ({
+              paqueteId: nuevoPaquete.id,
+              usuarioId: r.usuarioId,
+            })),
+          });
+        }
+
+        if (paquete.items.length > 0) {
+          await tx.paqueteItem.createMany({
+            data: paquete.items.map((i) => ({
+              paqueteId: nuevoPaquete.id,
+              casoPruebaId: i.casoPruebaId,
+              esquemaId: creado.id,
+            })),
+          });
+        }
+      }
+      return [creado];
+    });
+
+    return {
+      message: `Se ha creado la versión ${nuevaVersion}.0 del esquema.`,
+      nuevoEsquemaId: nuevoEsquema.id,
     };
   }
 }

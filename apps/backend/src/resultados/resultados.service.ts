@@ -363,10 +363,25 @@ export class ResultadosService {
             comentarioFalla: true,
             comentarioCambio: true,
             certificadoEn: true,
+            version: true,
             certificadoPor: {
               select: { id: true, nombre: true, apellido: true },
             },
           },
+        },
+        resultadosHistoricos: {
+          orderBy: { version: 'desc' },
+          select: {
+            version: true,
+            estado: true,
+            cambio: true,
+            comentarioFalla: true,
+            comentarioCambio: true,
+            certificadoEn: true,
+            certificadoPor: {
+              select: { id: true, nombre: true, apellido: true },
+            },
+          }
         },
       },
     });
@@ -399,6 +414,8 @@ export class ResultadosService {
         certificadoPor: it.resultado?.certificadoPor ?? null,
         certificadoEn: it.resultado?.certificadoEn ?? null,
         responsables: this.responsablesDeItem(it),
+        version: it.resultado?.version ?? 1,
+        versionesAnteriores: it.resultadosHistoricos ?? [],
       }));
 
     return {

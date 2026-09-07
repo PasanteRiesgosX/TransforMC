@@ -42,6 +42,16 @@ interface CasoResultado {
   certificadoPor: Responsable | null;
   certificadoEn: string | null;
   responsables: Responsable[];
+  version: number;
+  versionesAnteriores: Array<{
+    version: number;
+    estado: EstadoCaso;
+    cambio: boolean | null;
+    comentarioFalla: string | null;
+    comentarioCambio: string | null;
+    certificadoEn: string | null;
+    certificadoPor: Responsable | null;
+  }>;
 }
 
 interface SubModuloDetalle {
@@ -205,6 +215,7 @@ export const AdminResultsSubModule: React.FC = () => {
             <thead>
               <tr>
                 <th>Caso de Prueba</th>
+                <th>Versión</th>
                 <th>Estado</th>
                 <th>Responsable</th>
                 <th>Cambios</th>
@@ -215,90 +226,189 @@ export const AdminResultsSubModule: React.FC = () => {
             <tbody>
               {casosFiltrados.map((caso) => {
                 const { Icon, color } = ICONO_ESTADO[caso.estado];
+                const hasVersions = caso.version > 1 || (caso.versionesAnteriores && caso.versionesAnteriores.length > 0);
+                
                 return (
-                  <tr key={caso.paqueteItemId} className="row-hover">
-                    <td>
-                      <div className="font-bold text-[var(--navy)] text-[13px]">{caso.nombre}</div>
-                      {caso.clasificador && (
-                        <div className="text-[11px] text-[var(--grayLight)] mt-[2px]">
-                          {caso.clasificador}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`tag ${ESTADO_TAG[caso.estado]}`}>
-                        <Icon size={14} style={{ color }} />
-                        {ESTADO_LABEL[caso.estado]}
-                      </span>
-                    </td>
-                    <td>
-                      {caso.responsables.length === 0 ? (
-                        <span className="text-[var(--grayLight)]">—</span>
-                      ) : (
-                        <div className="flex flex-col gap-[6px]">
-                          {caso.responsables.map((r) => (
-                            <div key={r.id} className="flex items-center gap-2">
-                              <Avatar
-                                name={r.nombre}
-                                lastName={r.apellido}
-                                size="sm"
-                                className="!w-[22px] !h-[22px] !text-[9px]"
-                              />
-                              <span className="text-[12.5px]">{nombreCompleto(r)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      {caso.cambio ? (
-                        <span className="tag tag-naranja">Con cambios</span>
-                      ) : (
-                        <span className="text-[var(--grayLight)]">—</span>
-                      )}
-                    </td>
-                    {/* Los dos comentarios del certificador, etiquetados por su pregunta */}
-                    <td>
-                      {caso.comentarioFalla || caso.comentarioCambio ? (
-                        <div className="flex flex-col gap-[6px] max-w-[280px]">
-                          {caso.comentarioFalla && (
-                            <div>
-                              <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[var(--rojo)]">
-                                Qué no funciona
-                              </span>
-                              <span
-                                className="block text-[12.5px] text-[var(--grayLight)] truncate"
-                                title={caso.comentarioFalla}
-                              >
-                                {caso.comentarioFalla}
-                              </span>
-                            </div>
-                          )}
-                          {caso.comentarioCambio && (
-                            <div>
-                              <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[#B87200]">
-                                Qué cambió
-                              </span>
-                              <span
-                                className="block text-[12.5px] text-[var(--grayLight)] truncate"
-                                title={caso.comentarioCambio}
-                              >
-                                {caso.comentarioCambio}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[var(--grayLight)]">—</span>
-                      )}
-                    </td>
-                    {/* Placeholder no funcional: la evidencia adjunta llega en la Fase 5 */}
-                    <td>
-                      <span className="inline-flex items-center gap-[6px] text-[var(--grayLight)] opacity-50">
-                        <Paperclip size={14} />—
-                      </span>
-                    </td>
-                  </tr>
+                  <React.Fragment key={caso.paqueteItemId}>
+                    <tr className="row-hover">
+                      <td>
+                        <div className="font-bold text-[var(--navy)] text-[13px]">{caso.nombre}</div>
+                        {caso.clasificador && (
+                          <div className="text-[11px] text-[var(--grayLight)] mt-[2px]">
+                            {caso.clasificador}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {hasVersions ? (
+                          <span className="text-[10px] font-bold text-[var(--teal)] bg-[#e6f4f1] px-2 py-0.5 rounded-full inline-block whitespace-nowrap">
+                            v{caso.version}.0
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[var(--grayLight)]">
+                            1.0 Sin Versión
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`tag ${ESTADO_TAG[caso.estado]}`}>
+                          <Icon size={14} style={{ color }} />
+                          {ESTADO_LABEL[caso.estado]}
+                        </span>
+                      </td>
+                      <td>
+                        {caso.responsables.length === 0 ? (
+                          <span className="text-[var(--grayLight)]">—</span>
+                        ) : (
+                          <div className="flex flex-col gap-[6px]">
+                            {caso.responsables.map((r) => (
+                              <div key={r.id} className="flex items-center gap-2">
+                                <Avatar
+                                  name={r.nombre}
+                                  lastName={r.apellido}
+                                  size="sm"
+                                  className="!w-[22px] !h-[22px] !text-[9px]"
+                                />
+                                <span className="text-[12.5px]">{nombreCompleto(r)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {caso.cambio ? (
+                          <span className="tag tag-naranja">Con cambios</span>
+                        ) : (
+                          <span className="text-[var(--grayLight)]">—</span>
+                        )}
+                      </td>
+                      {/* Los dos comentarios del certificador, etiquetados por su pregunta */}
+                      <td>
+                        {caso.comentarioFalla || caso.comentarioCambio ? (
+                          <div className="flex flex-col gap-[6px] max-w-[280px]">
+                            {caso.comentarioFalla && (
+                              <div>
+                                <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[var(--rojo)]">
+                                  Qué no funciona
+                                </span>
+                                <span
+                                  className="block text-[12.5px] text-[var(--grayLight)] truncate"
+                                  title={caso.comentarioFalla}
+                                >
+                                  {caso.comentarioFalla}
+                                </span>
+                              </div>
+                            )}
+                            {caso.comentarioCambio && (
+                              <div>
+                                <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[#B87200]">
+                                  Qué cambió
+                                </span>
+                                <span
+                                  className="block text-[12.5px] text-[var(--grayLight)] truncate"
+                                  title={caso.comentarioCambio}
+                                >
+                                  {caso.comentarioCambio}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[var(--grayLight)]">—</span>
+                        )}
+                      </td>
+                      {/* Placeholder no funcional: la evidencia adjunta llega en la Fase 5 */}
+                      <td>
+                        <span className="inline-flex items-center gap-[6px] text-[var(--grayLight)] opacity-50">
+                          <Paperclip size={14} />—
+                        </span>
+                      </td>
+                    </tr>
+                    
+                    {/* Versiones Históricas */}
+                    {caso.versionesAnteriores?.map((hist) => {
+                      const { Icon: HistIcon, color: histColor } = ICONO_ESTADO[hist.estado];
+                      return (
+                        <tr key={`${caso.paqueteItemId}-${hist.version}`} className="bg-gray-50/50 opacity-60 row-hover">
+                          <td className="pl-6 border-l-2 border-l-[var(--grayLight)]">
+                            <div className="text-[var(--grayLight)] text-[12px] italic">Versión anterior</div>
+                          </td>
+                          <td>
+                            <span className="text-[10px] font-bold text-[var(--gray)] bg-[var(--grayLight)] bg-opacity-20 px-2 py-0.5 rounded-full inline-block whitespace-nowrap">
+                              v{hist.version}.0
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`tag ${ESTADO_TAG[hist.estado]}`}>
+                              <HistIcon size={14} style={{ color: histColor }} />
+                              {ESTADO_LABEL[hist.estado]}
+                            </span>
+                          </td>
+                          <td>
+                            {hist.certificadoPor ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar
+                                  name={hist.certificadoPor.nombre}
+                                  lastName={hist.certificadoPor.apellido}
+                                  size="sm"
+                                  className="!w-[22px] !h-[22px] !text-[9px]"
+                                />
+                                <span className="text-[12.5px]">{nombreCompleto(hist.certificadoPor)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-[var(--grayLight)]">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {hist.cambio ? (
+                              <span className="tag tag-naranja">Con cambios</span>
+                            ) : (
+                              <span className="text-[var(--grayLight)]">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {hist.comentarioFalla || hist.comentarioCambio ? (
+                              <div className="flex flex-col gap-[6px] max-w-[280px]">
+                                {hist.comentarioFalla && (
+                                  <div>
+                                    <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[var(--rojo)]">
+                                      Qué no funciona
+                                    </span>
+                                    <span
+                                      className="block text-[12.5px] text-[var(--grayLight)] truncate"
+                                      title={hist.comentarioFalla}
+                                    >
+                                      {hist.comentarioFalla}
+                                    </span>
+                                  </div>
+                                )}
+                                {hist.comentarioCambio && (
+                                  <div>
+                                    <span className="block text-[10px] font-bold uppercase tracking-[0.02em] text-[#B87200]">
+                                      Qué cambió
+                                    </span>
+                                    <span
+                                      className="block text-[12.5px] text-[var(--grayLight)] truncate"
+                                      title={hist.comentarioCambio}
+                                    >
+                                      {hist.comentarioCambio}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[var(--grayLight)]">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="inline-flex items-center gap-[6px] text-[var(--grayLight)] opacity-50">
+                              <Paperclip size={14} />—
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
             </tbody>

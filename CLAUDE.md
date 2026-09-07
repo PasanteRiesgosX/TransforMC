@@ -385,12 +385,44 @@ backend   src/solicitudes/{solicitudes.module,controller,service}.ts
 frontend  src/pages/AdminSolicitudes.tsx
           src/pages/AdminSolicitudesEsquema.tsx
           src/components/certificaciones/SolicitarReapertura.tsx
-          src/pages/CertifierScheme.tsx (integración de la solicitud y feedback)
+---
+
+## 13. Fase 6 - Parte 3 (Versionamiento de Casos de Prueba)
+
+Permite a los usuarios certificadores crear múltiples versiones de sus respuestas (casos de prueba) a lo largo del tiempo, almacenando el historial sin alterar el comportamiento de las métricas.
+
+### A. Modelo Arquitectónico (Archivo Histórico)
+Para mantener intacta la lógica de las métricas en Resultados (las cuales leen siempre `ResultadoItem`), se implementó el patrón de **Archivo Histórico**:
+- El esquema original 1:1 `PaqueteItem <-> ResultadoItem` se mantiene. `ResultadoItem` contiene siempre la **versión activa**.
+- Se creó el modelo inmutable `ResultadoHistorico` ligado a `PaqueteItem`.
+- Al **Versionar**, el backend copia los campos (estado, comentarios, fechas) de `ResultadoItem` hacia una nueva fila en `ResultadoHistorico`, e incrementa `version` en `ResultadoItem`, reseteándolo a `estado = 'pendiente'`.
+- De esta forma las métricas globales y los endpoints existentes ignoran el historial automáticamente.
+
+### B. Funcionalidad del Certificador (`ItemCard.tsx` / `CertifierModule.tsx`)
+- Aparece el botón **Versionar** (ícono `GitBranch`) en los ítems que ya han sido contestados (`estado !== 'pendiente'`).
+- Al hacer clic, se crea la nueva versión activa (se resetea la tarjeta principal para que el certificador vuelva a evaluar).
+- Las **versiones anteriores** se renderizan inmediatamente debajo de la tarjeta principal. Aparecen anidadas, en modo de solo lectura (deshabilitadas visualmente con menor opacidad y el badge de su versión histórica `v1.0`).
+- La versión activa muestra su badge `v2.0`, `v3.0`, etc.
+
+### C. Funcionalidad de Resultados Administrador (`AdminResultsSubModule.tsx`)
+- En la tabla de Resultados a nivel submódulo (Nivel 3), se incorporó la columna **Versión**.
+- Se reemplazó el `<tr>` simple por un `React.Fragment`. Si un caso tiene historial, debajo de su fila activa (la última evaluación), se despliegan en cascada todas sus iteraciones históricas como filas grises en cursiva ("Versión anterior").
+- Los KPIs (semáforo de calidad y barra de completitud) se mantienen inalterados ya que continúan calculándose exclusivamente con la respuesta de la última versión creada.
+
+Archivos de la fase:
+```
+backend   prisma/schema.prisma (ResultadoItem.version, model ResultadoHistorico)
+          src/certificaciones/{certificaciones.service, certificaciones.controller}.ts
+          src/resultados/resultados.service.ts
+frontend  src/lib/certificaciones.ts y resultados.ts
+          src/components/certificaciones/ItemCard.tsx
+          src/pages/CertifierModule.tsx
+          src/pages/AdminResultsSubModule.tsx
 ```
 
 ---
 
-## 13. Git
+## 14. Git
 
 - Rama principal: `main`. Historial corto (`first commit`, `Segundo commit fase 2`).
 - Mensajes de commit en español.

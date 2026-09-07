@@ -33,6 +33,8 @@ export interface EsquemaAsignado {
   nombre: string;
   ambiente: string;
   creadoEn: string;
+  version: number;
+  esquemaVersionDeId: string | null;
   progreso: Progreso;
   envio: EstadoEnvio;
 }
@@ -63,6 +65,17 @@ export interface CasoCertificable {
   cambio: boolean | null;
   comentarioFalla: string | null;
   comentarioCambio: string | null;
+  version: number;
+  versionesAnteriores: VersionAnterior[];
+}
+
+export interface VersionAnterior {
+  version: number;
+  estado: EstadoCaso;
+  cambio: boolean | null;
+  comentarioFalla: string | null;
+  comentarioCambio: string | null;
+  certificadoEn: string | null;
 }
 
 export interface SubModuloConCasos {

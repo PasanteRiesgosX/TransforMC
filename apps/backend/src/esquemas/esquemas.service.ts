@@ -155,6 +155,7 @@ export class EsquemasService {
       orderBy: { creadoEn: 'desc' },
       include: {
         esquemasHijos: { select: { id: true, nombre: true, ambiente: true } },
+        esquemaVersiones: { select: { id: true } },
         paquetes: {
           include: {
             items: {
@@ -196,6 +197,9 @@ export class EsquemasService {
         ambiente: sch.ambiente,
         esquemaPadreId: sch.esquemaPadreId,
         esquemasHijos: sch.esquemasHijos,
+        version: sch.version,
+        esquemaVersionDeId: sch.esquemaVersionDeId,
+        esquemaVersiones: sch.esquemaVersiones,
         creadoEn: sch.creadoEn,
         responsables: [...respMap.values()],
         _count: {

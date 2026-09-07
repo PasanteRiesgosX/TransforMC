@@ -63,6 +63,28 @@ export class CertificacionesController {
     return this.certificacionesService.solicitarReapertura(user.userId, esquemaId, motivo);
   }
 
+  /**
+   * Versionar el esquema completo
+   */
+  @Post('mis-certificaciones/:esquemaId/versionar-esquema')
+  versionarEsquema(
+    @CurrentUser() user: any,
+    @Param('esquemaId') esquemaId: string,
+  ) {
+    return this.certificacionesService.versionarEsquema(user.userId, esquemaId);
+  }
+
+  /**
+   * Crear nueva versión de la respuesta
+   */
+  @Post('mis-certificaciones/items/:paqueteItemId/versionar')
+  versionar(
+    @CurrentUser() user: any,
+    @Param('paqueteItemId') paqueteItemId: string,
+  ) {
+    return this.certificacionesService.versionarItem(user.userId, paqueteItemId);
+  }
+
   /** Autoguardado de la respuesta de un caso de prueba. */
   @Patch('mis-certificaciones/items/:paqueteItemId')
   guardarRespuesta(

@@ -44,6 +44,9 @@ interface SchemeCard {
   esquemaPadreId?: string;
   esquemasHijos?: { id: string; nombre: string; ambiente: string }[];
   creadoEn: string;
+  version: number;
+  esquemaVersionDeId?: string;
+  esquemaVersiones?: { id: string }[];
   responsables: Responsable[];
   _count: { paquetes: number; items: number };
   metricas: { ok: number; fail: number; calidad: number | null };
@@ -105,27 +108,37 @@ export const AdminSchemes: React.FC = () => {
   schemes.forEach((sch) => {
     if (handled.has(sch.id)) return;
 
-    if (sch.esquemaPadreId) {
-      const parent = schemes.find((s) => s.id === sch.esquemaPadreId);
-      if (parent && !handled.has(parent.id)) {
-        groupedSchemes.push([parent, sch]);
-        handled.add(parent.id);
-        handled.add(sch.id);
-      } else {
-        groupedSchemes.push([sch]);
-        handled.add(sch.id);
-      }
-    } else {
-      const children = schemes.filter((s) => s.esquemaPadreId === sch.id);
-      if (children.length > 0) {
-        groupedSchemes.push([sch, ...children]);
-        handled.add(sch.id);
-        children.forEach((c) => handled.add(c.id));
-      } else {
-        groupedSchemes.push([sch]);
-        handled.add(sch.id);
+    // Encontrar la raíz de esta familia
+    let rootId = sch.id;
+    if (sch.esquemaVersionDeId) {
+      rootId = sch.esquemaVersionDeId;
+    } else if (sch.esquemaPadreId) {
+      const parent = schemes.find(s => s.id === sch.esquemaPadreId);
+      if (parent) {
+        if (parent.esquemaVersionDeId) rootId = parent.esquemaVersionDeId;
+        else rootId = parent.id;
       }
     }
+
+    // Obtener todos los esquemas de esta familia
+    const family = schemes.filter(s => 
+      s.id === rootId || 
+      s.esquemaVersionDeId === rootId ||
+      (s.esquemaPadreId && (s.esquemaPadreId === rootId || schemes.find(p => p.id === s.esquemaPadreId)?.esquemaVersionDeId === rootId))
+    );
+
+    // Ordenar la familia: ORIGINAL -> VERSIONADO -> PRODUCCION
+    const pruebas = family.filter(s => s.ambiente === 'Pruebas').sort((a, b) => a.version - b.version);
+    const prod = family.filter(s => s.ambiente === 'Producción').sort((a, b) => {
+      const parentA = family.find(p => p.id === a.esquemaPadreId);
+      const parentB = family.find(p => p.id === b.esquemaPadreId);
+      const verA = parentA ? parentA.version : 0;
+      const verB = parentB ? parentB.version : 0;
+      return verA - verB;
+    });
+
+    groupedSchemes.push([...pruebas, ...prod]);
+    family.forEach(s => handled.add(s.id));
   });
 
   return (
@@ -208,13 +221,23 @@ export const AdminSchemes: React.FC = () => {
                               <Rocket size={12} />
                             </button>
                           )}
-                          <button
-                            className="icon-btn"
-                            title="Editar esquema"
-                            onClick={() => navigate(`/admin/esquemas/${sch.id}`)}
-                          >
-                            <Pencil size={12} />
-                          </button>
+                          {!sch.esquemaVersiones?.length && (
+                            <button
+                              className="icon-btn"
+                              title="Editar esquema"
+                              onClick={() => navigate(`/admin/esquemas/${sch.id}`)}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                          {sch.esquemaVersiones && sch.esquemaVersiones.length > 0 && (
+                            <button
+                              className="icon-btn opacity-50 cursor-not-allowed"
+                              title="No se puede editar un esquema versionado"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
                           <button
                             className="icon-btn"
                             title="Eliminar esquema"
@@ -234,7 +257,14 @@ export const AdminSchemes: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="mod-card-title mt-1">{sch.nombre}</div>
+                    <div className="mod-card-title mt-1 flex items-center gap-2">
+                      {sch.nombre}
+                      {sch.version > 1 && (
+                        <span className="text-[10px] font-bold text-[var(--teal)] bg-[#e6f4f1] px-2 py-0.5 rounded-full">
+                          v{sch.version}.0
+                        </span>
+                      )}
+                    </div>
                     <div className="mod-card-meta">
                       {sch._count.paquetes} paquete{sch._count.paquetes !== 1 ? 's' : ''} · {total} ítem
                       {total !== 1 ? 's' : ''} · creado {fecha}
