@@ -16,6 +16,10 @@ import { AdminResults } from './pages/AdminResults';
 import { AdminResultsScheme } from './pages/AdminResultsScheme';
 import { AdminResultsModule } from './pages/AdminResultsModule';
 import { AdminResultsSubModule } from './pages/AdminResultsSubModule';
+import { AdminResultsComparativaList } from './pages/AdminResultsComparativaList';
+import { AdminResultsComparativaDetail } from './pages/AdminResultsComparativaDetail';
+import { AdminSolicitudes } from './pages/AdminSolicitudes';
+import { AdminSolicitudesEsquema } from './pages/AdminSolicitudesEsquema';
 import { CertifierSchemes } from './pages/CertifierSchemes';
 import { CertifierScheme } from './pages/CertifierScheme';
 import { CertifierModule } from './pages/CertifierModule';
@@ -67,6 +71,10 @@ const AppRoutes = () => {
 
         {/* Fase 4 — Resultados: drill-down esquema › módulo › submódulo › tabla */}
         <Route path="resultados" element={<AdminResults />} />
+        <Route path="resultados/comparativa" element={<AdminResultsComparativaList />} />
+        <Route path="resultados/comparativa/:pruebasId/:prodId" element={<AdminResultsComparativaDetail />} />
+        <Route path="solicitudes" element={<AdminSolicitudes />} />
+        <Route path="solicitudes/:esquemaId" element={<AdminSolicitudesEsquema />} />
         <Route path="resultados/:esquemaId" element={<AdminResultsScheme />} />
         <Route
           path="resultados/:esquemaId/modulos/:moduloId"
@@ -119,3 +127,5 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+

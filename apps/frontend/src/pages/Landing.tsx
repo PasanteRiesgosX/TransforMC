@@ -26,7 +26,7 @@ export const Landing: React.FC = () => {
           </div>
 
           <h1 className="text-white text-[30px] font-[700] m-0 mb-[14px] leading-[1.25]">
-            Certificación Vista 5.0
+            Certificación Vista 1.0
           </h1>
           <p className="text-[#AEB4C4] text-[15px] leading-[1.6] m-0 mb-[40px]">
             Aquí certificamos que el sistema Vista funciona correctamente después de la actualización de versión, tanto en el ambiente de pruebas como en producción, antes de salir en vivo en los complejos de Multicines

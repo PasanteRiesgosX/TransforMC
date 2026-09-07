@@ -40,6 +40,7 @@ model User {
 
   // Fase 5 — Envíos de certificación (uno por esquema que el usuario cierra)
   enviosCertificacion EnvioCertificacion[]
+  solicitudesReapertura SolicitudReapertura[]
 
   @@map("users")
 }
@@ -138,6 +139,13 @@ model Esquema {
   paqueteItems PaqueteItem[]
   // Fase 5 — envíos de certificación de este esquema (uno por certificador)
   envios       EnvioCertificacion[]
+
+  // Fase 6 — Vinculación Pruebas vs Producción
+  esquemaPadreId String?
+  esquemaPadre   Esquema?  @relation("EsquemaLinked", fields: [esquemaPadreId], references: [id], onDelete: SetNull)
+  esquemasHijos  Esquema[] @relation("EsquemaLinked")
+
+  solicitudesReapertura SolicitudReapertura[]
 
   @@index([creadoEn])
 }
@@ -280,3 +288,17 @@ model EnvioCertificacion {
   @@unique([esquemaId, usuarioId])
   @@index([usuarioId])
 }
+
+model SolicitudReapertura {
+  id String @id @default(uuid())
+  esquemaId String
+  esquema Esquema @relation(fields: [esquemaId], references: [id], onDelete: Cascade)
+  usuarioId String
+  usuario User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  estado String @default("PENDING")
+  motivo String
+  respuestaAdmin String?
+  creadoEn DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+}
+

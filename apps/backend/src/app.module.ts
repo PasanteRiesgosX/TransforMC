@@ -9,6 +9,7 @@ import { ModulosModule } from './modulos/modulos.module';
 import { EsquemasModule } from './esquemas/esquemas.module';
 import { ResultadosModule } from './resultados/resultados.module';
 import { CertificacionesModule } from './certificaciones/certificaciones.module';
+import { SolicitudesModule } from './solicitudes/solicitudes.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CertificacionesModule } from './certificaciones/certificaciones.module'
     EsquemasModule,
     ResultadosModule,
     CertificacionesModule,
+    SolicitudesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

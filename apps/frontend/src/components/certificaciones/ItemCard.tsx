@@ -11,8 +11,10 @@ interface ItemCardProps {
   numero: number;
   /** Tras enviar la certificación el caso queda visible pero no editable. */
   soloLectura?: boolean;
+  /** `'pendiente'` deselecciona la pregunta 1 (la deja sin respuesta). */
   onEstado: (estado: EstadoCaso) => void;
-  onCambio: (cambio: boolean) => void;
+  /** `null` deselecciona la pregunta 2 (la deja sin respuesta). */
+  onCambio: (cambio: boolean | null) => void;
   onComentario: (campo: 'comentarioFalla' | 'comentarioCambio', valor: string) => void;
 }
 
@@ -117,7 +119,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           <button
             className={`eval-choice ${caso.estado === 'aprobado' ? 'on-teal' : ''}`}
             disabled={soloLectura}
-            onClick={() => onEstado('aprobado')}
+            onClick={() => onEstado(caso.estado === 'aprobado' ? 'pendiente' : 'aprobado')}
           >
             <Check size={14} />
             Sí, funciona
@@ -125,7 +127,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           <button
             className={`eval-choice ${noFunciona ? 'on-rojo' : ''}`}
             disabled={soloLectura}
-            onClick={() => onEstado('rechazado')}
+            onClick={() => onEstado(noFunciona ? 'pendiente' : 'rechazado')}
           >
             <X size={14} />
             No funciona
@@ -138,16 +140,16 @@ export const ItemCard: React.FC<ItemCardProps> = ({
         <div className="eval-block-label">¿Notaste cambios frente a la versión anterior?</div>
         <div className="eval-choice-row">
           <button
-            className={`eval-choice ${caso.cambio === false ? 'on-neutral' : ''}`}
+            className={`eval-choice ${caso.cambio === false ? 'on-cian' : ''}`}
             disabled={soloLectura}
-            onClick={() => onCambio(false)}
+            onClick={() => onCambio(caso.cambio === false ? null : false)}
           >
             No, sigue igual
           </button>
           <button
             className={`eval-choice ${caso.cambio === true ? 'on-naranja' : ''}`}
             disabled={soloLectura}
-            onClick={() => onCambio(true)}
+            onClick={() => onCambio(caso.cambio === true ? null : true)}
           >
             Sí, cambió
           </button>

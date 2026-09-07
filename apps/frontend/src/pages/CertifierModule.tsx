@@ -160,10 +160,11 @@ export const CertifierModule: React.FC = () => {
     guardar(caso.paqueteItemId, { estado });
   };
 
-  /** Pregunta 2 — guardado inmediato. */
-  const handleCambio = (caso: CasoCertificable, cambio: boolean) => {
+  /** Pregunta 2 — guardado inmediato. `null` la deselecciona (la deja vacía). */
+  const handleCambio = (caso: CasoCertificable, cambio: boolean | null) => {
     const parche: Partial<CasoCertificable> = { cambio };
-    if (!cambio) parche.comentarioCambio = null;
+    // El comentario de cambio solo aplica cuando la respuesta es "sí cambió".
+    if (cambio !== true) parche.comentarioCambio = null;
     aplicarLocal(caso.paqueteItemId, parche);
     guardar(caso.paqueteItemId, { cambio });
   };

@@ -5,6 +5,7 @@ import { ChevronRight, Lock } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { getModuleIcon } from './AdminCatalog';
 import { EnviarCertificacion } from '../components/certificaciones/EnviarCertificacion';
+import { SolicitarReapertura } from '../components/certificaciones/SolicitarReapertura';
 import {
   API,
   authHeaders,
@@ -18,6 +19,7 @@ import {
 interface MisModulos {
   esquema: { id: string; nombre: string; ambiente: string };
   envio: EstadoEnvio;
+  solicitudReapertura?: { estado: 'PENDING' | 'APPROVED' | 'REJECTED'; respuestaAdmin?: string } | null;
   progreso: Progreso;
   modulos: ModuloAsignado[];
 }
@@ -177,6 +179,18 @@ export const CertifierScheme: React.FC = () => {
           </div>
         );
       })}
+
+      <SolicitarReapertura
+        esquemaId={esquemaId!}
+        envio={envio}
+        solicitudReapertura={data.solicitudReapertura}
+        onSolicitado={() => {
+          // Re-fetch to update state
+          axios.get(`${API}/api/mis-certificaciones/${esquemaId}`, authHeaders())
+            .then(res => setData(res.data))
+            .catch(() => {});
+        }}
+      />
     </div>
   );
 };

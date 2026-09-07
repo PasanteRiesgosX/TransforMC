@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
@@ -52,6 +52,7 @@ export const AdminSchemeEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const mode: 'create' | 'edit' = id ? 'edit' : 'create';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -99,11 +100,19 @@ export const AdminSchemeEditor: React.FC = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchModulos(), fetchCertifiers(), mode === 'edit' ? fetchScheme() : Promise.resolve()]);
+      await Promise.all([
+        fetchModulos(), 
+        fetchCertifiers(), 
+        mode === 'edit' 
+          ? fetchScheme() 
+          : searchParams.get('cloneFrom')
+            ? fetchCloneSource(searchParams.get('cloneFrom')!)
+            : Promise.resolve()
+      ]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, searchParams]);
 
   const fetchModulos = async () => {
     try {
@@ -132,6 +141,25 @@ export const AdminSchemeEditor: React.FC = () => {
     } catch (err: any) {
       showToast(readError(err, 'Error al cargar el esquema'));
       navigate('/admin/esquemas');
+    }
+  };
+
+  const fetchCloneSource = async (sourceId: string) => {
+    try {
+      const res = await axios.get(`${API}/api/esquemas/${sourceId}`, { headers: authHeaders() });
+      const source = res.data;
+      setNombre(source.nombre + ' Producción');
+      setAmbiente('Producción');
+      
+      const newDrafts = source.paquetes.map((p: any) => ({
+        localId: uid('pq'),
+        nombre: p.nombre,
+        itemIds: p.itemIds,
+        userIds: p.userIds
+      }));
+      setDraftPaquetes(newDrafts);
+    } catch (err: any) {
+      showToast('No se pudo clonar el esquema original');
     }
   };
 
@@ -364,6 +392,7 @@ export const AdminSchemeEditor: React.FC = () => {
         {
           nombre: nombre.trim(),
           ambiente,
+          esquemaPadreId: searchParams.get('cloneFrom') || undefined,
           paquetes: draftPaquetes.map((p) => ({
             nombre: p.nombre,
             itemIds: p.itemIds,
@@ -445,10 +474,14 @@ export const AdminSchemeEditor: React.FC = () => {
             label="Ambiente"
             value={ambiente}
             onChange={(e) => setAmbiente(e.target.value as 'Pruebas' | 'Producción')}
-            options={[
-              { value: 'Pruebas', label: 'Pruebas' },
-              { value: 'Producción', label: 'Producción' },
-            ]}
+            options={
+              searchParams.get('cloneFrom')
+                ? [{ value: 'Producción', label: 'Producción' }]
+                : [
+                    { value: 'Pruebas', label: 'Pruebas' },
+                    { value: 'Producción', label: 'Producción' },
+                  ]
+            }
           />
         </div>
         <div className="hint" style={{ marginTop: 10 }}>
@@ -738,3 +771,4 @@ export const AdminSchemeEditor: React.FC = () => {
     </div>
   );
 };
+

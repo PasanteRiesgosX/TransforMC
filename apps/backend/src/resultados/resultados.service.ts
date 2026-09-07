@@ -96,6 +96,7 @@ export class ResultadosService {
       this.prisma.esquema.findMany({
         orderBy: { creadoEn: 'desc' },
         include: {
+          esquemasHijos: { select: { id: true, nombre: true, ambiente: true } },
           paquetes: {
             include: {
               _count: { select: { items: true } },
@@ -142,6 +143,8 @@ export class ResultadosService {
           id: sch.id,
           nombre: sch.nombre,
           ambiente: sch.ambiente,
+          esquemaPadreId: sch.esquemaPadreId,
+          esquemasHijos: sch.esquemasHijos,
           creadoEn: sch.creadoEn,
           responsables,
           _count: { paquetes: sch.paquetes.length, items: totalItems },

@@ -41,9 +41,12 @@ interface SchemeCard {
   id: string;
   nombre: string;
   ambiente: string;
+  esquemaPadreId?: string;
+  esquemasHijos?: { id: string; nombre: string; ambiente: string }[];
   creadoEn: string;
   responsables: Responsable[];
   _count: { paquetes: number; items: number };
+  metricas: { ok: number; fail: number; calidad: number | null };
 }
 
 export const AdminSchemes: React.FC = () => {
@@ -95,6 +98,36 @@ export const AdminSchemes: React.FC = () => {
     return <div className="p-8 text-center text-[var(--grayLight)]">Cargando esquemas...</div>;
   }
 
+  // Agrupar esquemas vinculados para que aparezcan juntos (Pruebas y Producción alado)
+  const groupedSchemes: SchemeCard[][] = [];
+  const handled = new Set<string>();
+
+  schemes.forEach((sch) => {
+    if (handled.has(sch.id)) return;
+
+    if (sch.esquemaPadreId) {
+      const parent = schemes.find((s) => s.id === sch.esquemaPadreId);
+      if (parent && !handled.has(parent.id)) {
+        groupedSchemes.push([parent, sch]);
+        handled.add(parent.id);
+        handled.add(sch.id);
+      } else {
+        groupedSchemes.push([sch]);
+        handled.add(sch.id);
+      }
+    } else {
+      const children = schemes.filter((s) => s.esquemaPadreId === sch.id);
+      if (children.length > 0) {
+        groupedSchemes.push([sch, ...children]);
+        handled.add(sch.id);
+        children.forEach((c) => handled.add(c.id));
+      } else {
+        groupedSchemes.push([sch]);
+        handled.add(sch.id);
+      }
+    }
+  });
+
   return (
     <div className="fade-in">
       <div className="page-head">
@@ -130,91 +163,110 @@ export const AdminSchemes: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div
-          className="grid gap-[14px]"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
-        >
-          {schemes.map((sch) => {
-            const colorName = colors[getHashIndex(sch.id, colors.length)];
-            const isProd = sch.ambiente === 'Producción';
-            const EnvIcon = isProd ? Rocket : FlaskConical;
-            const responsables = sch.responsables || [];
-            const shown = responsables.slice(0, 4);
-            const extra = responsables.length - shown.length;
-            const fecha = new Date(sch.creadoEn).toLocaleDateString('es-EC');
-            const total = sch._count.items;
+        <div className="flex flex-col gap-[20px]">
+          {groupedSchemes.map((group, gIdx) => (
+            <div
+              key={gIdx}
+              className="grid gap-[14px]"
+              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+            >
+              {group.map((sch) => {
+                const colorName = colors[getHashIndex(sch.id, colors.length)];
+                const isProd = sch.ambiente === 'Producción';
+                const EnvIcon = isProd ? Rocket : FlaskConical;
+                const responsables = sch.responsables || [];
+                const shown = responsables.slice(0, 4);
+                const extra = responsables.length - shown.length;
+                const fecha = new Date(sch.creadoEn).toLocaleDateString('es-EC');
+                const total = sch._count.items;
+                const ok = sch.metricas?.ok || 0;
+                const fail = sch.metricas?.fail || 0;
+                const totalRespuestas = ok + fail;
+                const progressPct = total === 0 ? 0 : Math.round((totalRespuestas / total) * 100);
+                const calidad = sch.metricas?.calidad ?? null;
 
-            return (
-              <div key={sch.id} className="mod-card group relative">
-                <div className="flex items-start justify-between">
-                  <div
-                    className="mod-icon"
-                    style={{
-                      backgroundColor: `var(--${colorName}-bg)`,
-                      color: `var(--${colorName})`,
-                    }}
-                  >
-                    <EnvIcon size={19} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        className="icon-btn"
-                        title="Editar esquema"
-                        onClick={() => navigate(`/admin/esquemas/${sch.id}`)}
+                return (
+                  <div key={sch.id} className="mod-card group relative">
+                    <div className="flex items-start justify-between">
+                      <div
+                        className="mod-icon"
+                        style={{
+                          backgroundColor: isProd ? 'var(--amarillo-bg)' : `var(--${colorName}-bg)`,
+                          color: isProd ? 'var(--amarillo)' : `var(--${colorName})`,
+                        }}
                       >
-                        <Pencil size={12} />
-                      </button>
-                      <button
-                        className="icon-btn"
-                        title="Eliminar esquema"
-                        onClick={() => setDeleteTarget(sch)}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                        <EnvIcon size={19} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!isProd && (
+                            <button
+                              className="icon-btn text-[var(--naranja)] hover:bg-[var(--naranja-bg)]"
+                              title="Pasar a Producción"
+                              onClick={() => navigate(`/admin/esquemas/nuevo?cloneFrom=${sch.id}`)}
+                            >
+                              <Rocket size={12} />
+                            </button>
+                          )}
+                          <button
+                            className="icon-btn"
+                            title="Editar esquema"
+                            onClick={() => navigate(`/admin/esquemas/${sch.id}`)}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            className="icon-btn"
+                            title="Eliminar esquema"
+                            onClick={() => setDeleteTarget(sch)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <div className="semaphore" title={calidad !== null ? `Calidad: ${calidad}%` : 'Sin certificar'}>
+                          <span className={`semaphore-light light-red ${calidad !== null && calidad < 70 ? 'active' : ''}`} />
+                          <span className={`semaphore-light light-yellow ${calidad !== null && calidad >= 70 && calidad < 90 ? 'active' : ''}`} />
+                          <span className={`semaphore-light light-green ${calidad !== null && calidad >= 90 ? 'active' : ''}`} />
+                        </div>
+                        <span className={`tag ${isProd ? 'tag-naranja' : 'tag-cian'}`}>
+                          {sch.ambiente}
+                        </span>
+                      </div>
                     </div>
-                    <div className="semaphore" title="En progreso">
-                      <span className="semaphore-light light-red" />
-                      <span className="semaphore-light light-yellow active" />
-                      <span className="semaphore-light light-green" />
+
+                    <div className="mod-card-title mt-1">{sch.nombre}</div>
+                    <div className="mod-card-meta">
+                      {sch._count.paquetes} paquete{sch._count.paquetes !== 1 ? 's' : ''} · {total} ítem
+                      {total !== 1 ? 's' : ''} · creado {fecha}
                     </div>
-                    <span className={`tag ${isProd ? 'tag-magenta' : 'tag-cian'}`}>
-                      {sch.ambiente}
-                    </span>
+
+                    <div className="flex items-center gap-[6px] my-3 min-h-[30px]">
+                      {shown.map((u) => (
+                        <div
+                          key={u.id}
+                          className={`avatar bg-${colors[getHashIndex(u.id, colors.length)]}`}
+                          title={`${u.nombre} ${u.apellido}`}
+                        >
+                          {(u.nombre[0] + u.apellido[0]).toUpperCase()}
+                        </div>
+                      ))}
+                      {extra > 0 && <div className="avatar bg-morado">+{extra}</div>}
+                      {responsables.length === 0 && (
+                        <span className="text-[11.5px] text-[var(--grayLight)]">Sin responsables aún</span>
+                      )}
+                    </div>
+
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <div className="text-[11.5px] text-[var(--grayLight)] mt-[6px]">
+                      {totalRespuestas}/{total} ítems certificados
+                    </div>
                   </div>
-                </div>
-
-                <div className="mod-card-title mt-1">{sch.nombre}</div>
-                <div className="mod-card-meta">
-                  {sch._count.paquetes} paquete{sch._count.paquetes !== 1 ? 's' : ''} · {total} ítem
-                  {total !== 1 ? 's' : ''} · creado {fecha}
-                </div>
-
-                <div className="flex items-center gap-[6px] my-3 min-h-[30px]">
-                  {shown.map((u) => (
-                    <div
-                      key={u.id}
-                      className={`avatar bg-${colors[getHashIndex(u.id, colors.length)]}`}
-                      title={`${u.nombre} ${u.apellido}`}
-                    >
-                      {(u.nombre[0] + u.apellido[0]).toUpperCase()}
-                    </div>
-                  ))}
-                  {extra > 0 && <div className="avatar bg-morado">+{extra}</div>}
-                  {responsables.length === 0 && (
-                    <span className="text-[11.5px] text-[var(--grayLight)]">Sin responsables aún</span>
-                  )}
-                </div>
-
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: '0%' }} />
-                </div>
-                <div className="text-[11.5px] text-[var(--grayLight)] mt-[6px]">
-                  0/{total} ítems certificados
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 

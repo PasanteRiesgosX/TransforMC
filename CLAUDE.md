@@ -57,9 +57,12 @@ Certifier Vista/
 │   │       ├── auth/               ← JWT + Passport
 │   │       ├── users/              ← Fase 1
 │   │       ├── modulos/            ← Fase 2 (catálogo)
-│   │       ├── esquemas/           ← Fase 3
+│   │       ├── esquemas/           ← Fase 3 (+ Pruebas vs Producción)
+│   │       ├── resultados/         ← Fase 4 (+ Comparativa)
+│   │       ├── certificaciones/    ← Fase 5
+│   │       ├── solicitudes/        ← Fase 6 (reaperturas)
 │   │       ├── common/             ← guards (JwtAuthGuard, RolesGuard), decorators
-│   │       ├── prisma/             ← PrismaService
+│   │       ├── prisma/             ← PrismaService (@prisma/adapter-pg)
 │   │       └── generated/prisma/   ← cliente generado (NO editar)
 │   └── frontend/                   ← React 19 + Vite 8 + Tailwind 4 + react-router 7
 │       ├── Design System.md        ← histórico Fases 2 y 3 (§1–§6ter, §9, §9bis)
@@ -107,7 +110,7 @@ Lint del frontend: `npm run lint -w frontend` (eslint).
 | 3    | Esquemas de evaluación (paquetes + responsables) | ✅ Terminada |
 | 4    | Resultados (admin, solo lectura)            | ✅ Terminada   |
 | 5    | Mis certificaciones (certificador, con autoguardado) | ✅ Terminada |
-| 6    | **Solicitudes de reapertura**               | 🚧 **Siguiente** |
+| 6    | **Solicitudes de reapertura** y **Pruebas vs Producción** | ✅ Terminada   |
 
 **Resultados (Fase 4) es solo de LECTURA.** No marca, no aprueba, no rechaza y no comenta. Toda la
 escritura de `ResultadoItem` vive en la Fase 5 (`/api/mis-certificaciones`). La UI de Resultados debe
@@ -124,7 +127,9 @@ User ──< Modulo ──< SubModulo ──< Clasificador (opcional, agrupa cas
 
 Esquema ──< Paquete ──< PaqueteItem ──1:1?── ResultadoItem
     │            └────< PaqueteResponsable ──> User
-    └────< EnvioCertificacion ──> User        (único por esquema+usuario)
+    ├────< EnvioCertificacion ──> User        (único por esquema+usuario)
+    ├────< SolicitudReapertura ──> User       (estado: PENDING, APPROVED, REJECTED)
+    └────0..1 Esquema (esquemaPadreId: vinculación Pruebas vs Producción)
 PaqueteItem ──> CasoPrueba          (esquemaId denormalizado)
 ```
 
@@ -139,7 +144,12 @@ Puntos que hay que tener presentes siempre:
     "todavía no contestó" de "contestó que sigue igual".
   - `comentarioFalla` (¿qué no funciona?) y `comentarioCambio` (¿qué cambió? / cuéntanos qué pasó).
 - **`EnvioCertificacion` es único por `(esquemaId, usuarioId)`.** Su existencia = ese certificador ya
-  cerró ese esquema → todo `PATCH` suyo sobre ítems de ese esquema responde 403.
+  cerró ese esquema → todo `PATCH` suyo sobre ítems de ese esquema responde 403. Al conceder una
+  reapertura, este registro se elimina para desbloquear el formulario.
+- **`SolicitudReapertura`** rastrea las peticiones de los certificadores para desbloquear sus esquemas
+  ya enviados (`estado ∈ { "PENDING", "APPROVED", "REJECTED" }`, `motivo`, `respuestaAdmin`).
+- **Vinculación Pruebas vs Producción (`esquemaPadreId`):** Un esquema de Producción puede nacer
+  como clon de uno de Pruebas apuntando a su `esquemaPadreId`. Esto habilita su comparación directa.
 - **Nada de enums de Prisma.** Roles, ambiente y estado son `String` a propósito.
 - Ambiente del esquema: exactamente `"Pruebas"` | `"Producción"` (con tilde).
 - Roles: `"ADMIN"` | `"CERTIFIER"` desde `@vista/shared`. En la UI, a los `CERTIFIER` se les dice
@@ -169,7 +179,8 @@ Puntos que hay que tener presentes siempre:
 | Catálogo  | `GET/POST /api/modulos`, `GET/PATCH/DELETE /api/modulos/:id`, `.../submodulos`, `.../clasificadores`, `.../casos` |
 | Esquemas  | `GET/POST /api/esquemas`, `GET/PATCH/DELETE /api/esquemas/:id`, `POST /api/esquemas/:id/paquetes`, `PATCH/DELETE /api/paquetes/:id` |
 | Resultados| `GET /api/resultados/overview`, `GET /api/resultados/esquemas/:esquemaId`, `.../modulos/:moduloId`, `.../submodulos/:subModuloId` |
-| Certificar| `GET /api/mis-certificaciones`, `GET /api/mis-certificaciones/:esquemaId`, `.../modulos/:moduloId`, `PATCH /api/mis-certificaciones/items/:paqueteItemId`, `POST /api/mis-certificaciones/:esquemaId/enviar` |
+| Certificar| `GET /api/mis-certificaciones`, `GET /api/mis-certificaciones/:esquemaId`, `.../modulos/:moduloId`, `PATCH /api/mis-certificaciones/items/:paqueteItemId`, `POST /api/mis-certificaciones/:esquemaId/enviar`, `POST /api/mis-certificaciones/:esquemaId/solicitar-reapertura` |
+| Solicitudes| `GET /api/solicitudes`, `GET /api/solicitudes/:esquemaId`, `PATCH /api/solicitudes/:id/aceptar`, `PATCH /api/solicitudes/:id/rechazar` |
 
 Los de **Resultados** son `@Roles(ADMIN)`; los de **Certificar** son `@Roles(CERTIFIER)` y además
 filtran siempre por el usuario del token (`paquete.responsables.some({ usuarioId })`), así que un
@@ -305,10 +316,14 @@ irreversible en esta fase).
 
 - Se registra en **`EnvioCertificacion`**, único por `(esquemaId, usuarioId)`. Dos responsables del
   mismo esquema envían por separado; uno **no** bloquea al otro.
-- **Solo se puede enviar con todo completo.** "Completo" es más estricto que el avance: exige las dos
-  preguntas respondidas y los comentarios obligatorios llenos (`casoListo()`, misma regla en el
-  backend y en `lib/certificaciones.ts`). Enviar a medias dejaría al certificador bloqueado con
-  preguntas sin responder y sin salida, porque la reapertura es la Fase 6.
+- **Un caso puede quedar vacío ("sin dato") y aun así se envía.** No todos los casos se responden. La
+  validez la define `casoListo()` (misma regla en backend y en `lib/certificaciones.ts`): un caso es
+  válido si está **completamente vacío** o si tiene lleno todo comentario obligatorio que sus
+  respuestas despliegan. Lo único que bloquea el envío es una **respuesta a medias**: "No funciona"
+  sin decir qué, o "Sí, cambió" sin decir qué. `envio.incompletos` cuenta solo esos casos a medias.
+- **Las dos preguntas se pueden deseleccionar.** Volver a pulsar la opción ya elegida la quita: P1
+  vuelve a `estado: "pendiente"`, P2 vuelve a `cambio: null` (el `PATCH` acepta `cambio: null` gracias
+  a `@IsOptional()`). El backend **no** cambia cómo persiste un caso sin respuesta (upsert + normalización).
 - Tras enviar, `PATCH` sobre cualquier ítem de ese esquema responde **403**. La UI pasa a solo
   lectura: botones deshabilitados (la opción elegida se mantiene nítida, las demás se apagan),
   textareas `readOnly`, y un `readonly-banner` arriba.
@@ -316,11 +331,66 @@ irreversible en esta fase).
   **COMPLETADO**, la fecha de envío y el CTA cambiado a "Ver mis respuestas".
 
 `POST /api/mis-certificaciones/:esquemaId/enviar` es el endpoint. La reapertura (poder volver a
-editar tras enviar) es la **Fase 6** y extenderá este mismo modelo.
+editar tras enviar) se implementó en la **Fase 6** (ver §12).
 
 ---
 
-## 11. Git
+## 11. Pruebas vs Producción (Esquemas y Comparativa en Resultados)
+
+Funcionalidad transversal entre Esquemas y Resultados para contrastar testeos entre ambientes:
+
+### A. Esquemas de Evaluación
+- **Semáforos funcionales:** Las tarjetas en `AdminSchemes.tsx` leen la métrica real `calidad` agregada desde el backend (`ok / (ok + fail)`). Se pintan en rojo, amarillo o verde (o apagado si no hay certificaciones).
+- **Pasar a Producción:** Botón con ícono `Rocket` en las tarjetas de esquemas de Pruebas. Redirige a `/admin/esquemas/nuevo?cloneFrom=:id`.
+- **Clonado inteligente:** `AdminSchemeEditor.tsx` detecta el parámetro `cloneFrom`, prellena los paquetes y sus ítems, fuerza el ambiente a `"Producción"` (bloqueando el selector), añade `" Producción"` al nombre y envía `esquemaPadreId` en el payload al backend.
+- **Agrupación visual:** En la cuadrícula de esquemas, los esquemas vinculados (`esquemaPadre` e `esquemasHijos`) se ordenan y renderizan contiguos (lado a lado), diferenciando visualmente sus tags de ambiente (`tag-cian` para Pruebas, `tag-magenta` para Producción).
+
+### B. Comparativa en Resultados
+- **Ruta de acceso:** Botón tipo chip *"Pruebas vs Producción"* en el encabezado de `AdminResults.tsx` hacia `/admin/resultados/comparativa`.
+- **Nivel 0 (Lista de pares vinculados):** En `AdminResultsComparativaList.tsx`, lista todos los pares que tienen relación padre/hijo. Cada tarjeta muestra los porcentajes de calidad de Pruebas y Producción.
+- **Drill-down unificado (`AdminResultsComparativaDetail.tsx`):**
+  - **Módulos / Submódulos:** Cada tarjeta es un rectángulo dividido en dos secciones: `Pruebas (porcentaje) | Producción (porcentaje)` arriba y el nombre del módulo/submódulo debajo.
+  - **Tabla de Casos de Prueba:** Columnas fijas `CASO DE PRUEBA | ESTADO PRUEBAS | ESTADO PRODUCCION`.
+  - **Regla de oro de desalineación:** Si un caso de prueba existe en Pruebas pero no en Producción (o viceversa, por edición del admin tras el clonado), el sistema no falla: muestra el tag neutral **"SIN DATO"**.
+
+---
+
+## 12. Fase 6 (Solicitudes de reapertura) — cómo quedó
+
+Permite a los certificadores solicitar el desbloqueo de un esquema enviado y a los administradores conceder o rechazar la reapertura.
+
+### Flujo del Certificador
+- En `CertifierScheme.tsx` se integra el componente `SolicitarReapertura.tsx` en la parte inferior.
+- **Antes de enviar:** El botón está presente pero deshabilitado. Al hacer clic muestra un aviso indicando que primero debe enviar la certificación.
+- **Tras enviar:** El botón se habilita. Al hacer clic abre un modal que solicita obligatoriamente el **Motivo** de la solicitud.
+- **Estado PENDING:** Muestra un banner informativo advirtiendo que la solicitud está en revisión por el administrador.
+- **Estado REJECTED:** Muestra en un recuadro de alerta el motivo de rechazo (`respuestaAdmin`) redactado por el administrador, y le permite formular una nueva solicitud.
+
+### Flujo del Administrador
+- **Sidebar:** Ítem **"Solicitudes"** habilitado en `AdminLayout.tsx` apuntando a `/admin/solicitudes`.
+- **Lista de Esquemas con Solicitudes (`AdminSolicitudes.tsx`):** Muestra tarjetas de esquemas con peticiones activas y un badge con el conteo de solicitudes pendientes.
+- **Detalle de Solicitudes por Esquema (`AdminSolicitudesEsquema.tsx`):**
+  - Tabla con: Certificador, Fecha, Motivo del certificador, Estado actual (`PENDIENTE`, `ACEPTADO`, `RECHAZADO`).
+  - **Rechazar:** Abre un modal exigiendo el motivo del rechazo (`respuestaAdmin`). Al confirmar, actualiza a `REJECTED` y el mensaje viaja al certificador.
+  - **Aceptar (Reapertura Completa):** Abre un modal de confirmación. En el backend se ejecuta una transacción atómica que:
+    1. Marca la solicitud como `APPROVED`.
+    2. **Elimina el registro de `EnvioCertificacion`** asociado a ese `(esquemaId, usuarioId)`.
+    3. Esto restablece automáticamente todos los permisos de edición (`PATCH`) para el certificador y retira el estado de solo lectura en su UI.
+
+Archivos de la fase:
+```
+backend   src/solicitudes/{solicitudes.module,controller,service}.ts
+          src/certificaciones/{controller,service}.ts (endpoint solicitar-reapertura)
+          prisma/migrations/20260904174442_add_reaperturas/
+frontend  src/pages/AdminSolicitudes.tsx
+          src/pages/AdminSolicitudesEsquema.tsx
+          src/components/certificaciones/SolicitarReapertura.tsx
+          src/pages/CertifierScheme.tsx (integración de la solicitud y feedback)
+```
+
+---
+
+## 13. Git
 
 - Rama principal: `main`. Historial corto (`first commit`, `Segundo commit fase 2`).
 - Mensajes de commit en español.

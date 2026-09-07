@@ -19,9 +19,13 @@ interface RespuestaGuardada {
 export interface EstadoEnvio {
   enviado: boolean;
   enviadoEn: Date | null;
-  /** Casos que todavía no están listos para enviar. */
+  /**
+   * Casos con una respuesta a medias: eligieron una opción que exige un
+   * comentario obligatorio y lo dejaron vacío. Los casos completamente vacíos
+   * NO cuentan aquí — son válidos.
+   */
   incompletos: number;
-  /** Solo se puede enviar si no está enviado y no queda ningún incompleto. */
+  /** Solo se puede enviar si no está enviado y no queda ningún caso a medias. */
   puedeEnviar: boolean;
 }
 
@@ -79,11 +83,18 @@ export class CertificacionesService {
   }
 
   /**
-   * Un caso está listo para enviarse cuando contestó las DOS preguntas y llenó
-   * los comentarios que su combinación exige (los que la UI marca con `*`).
+   * Un caso es VÁLIDO para enviar en cualquiera de estos dos escenarios:
+   *   1. Está completamente vacío (sin fila, o sin marcar ninguna de las dos
+   *      preguntas): se envía como "sin dato", que es un resultado legítimo — no
+   *      todos los casos se responden.
+   *   2. Tiene respuestas, y todo campo obligatorio que esas respuestas
+   *      despliegan está lleno (el comentario marcado con `*`).
+   *
+   * Lo único que invalida un caso es dejar a medias una respuesta que exige un
+   * comentario: elegir "No funciona" sin decir qué, o "Sí, cambió" sin decir qué.
    */
   private casoListo(r: RespuestaGuardada | null): boolean {
-    if (!r || r.estado === 'pendiente' || r.cambio === null) return false;
+    if (!r) return true; // sin fila = pregunta vacía = válido (sin dato)
     if (r.estado === 'rechazado' && !r.comentarioFalla?.trim()) return false;
     if (r.cambio === true && !r.comentarioCambio?.trim()) return false;
     return true;
@@ -284,9 +295,16 @@ export class CertificacionesService {
       modulos.set(mod.id, gm);
     }
 
+    const solicitudReapertura = await this.prisma.solicitudReapertura.findFirst({
+      where: { esquemaId, usuarioId },
+      orderBy: { creadoEn: 'desc' },
+      select: { estado: true, respuestaAdmin: true }
+    });
+
     return {
       esquema,
       envio,
+      solicitudReapertura,
       progreso: this.progreso(items.map((i) => i.resultado)),
       modulos: [...modulos.values()]
         .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'))
@@ -488,9 +506,35 @@ export class CertificacionesService {
   // ENVÍO DE LA CERTIFICACIÓN
   // ==========================================
 
+  async solicitarReapertura(usuarioId: string, esquemaId: string, motivo: string) {
+    const envio = await this.prisma.envioCertificacion.findUnique({
+      where: { esquemaId_usuarioId: { esquemaId, usuarioId } },
+      select: { id: true },
+    });
+    if (!envio) {
+      throw new BadRequestException('Debes enviar tu certificación antes de poder solicitar una reapertura.');
+    }
+
+    const existente = await this.prisma.solicitudReapertura.findFirst({
+      where: { esquemaId, usuarioId, estado: 'PENDING' }
+    });
+    if (existente) {
+      throw new BadRequestException('Ya tienes una solicitud de reapertura pendiente para este esquema.');
+    }
+
+    await this.prisma.solicitudReapertura.create({
+      data: {
+        esquemaId,
+        usuarioId,
+        motivo,
+      }
+    });
+    return { message: 'Solicitud enviada correctamente' };
+  }
+
   /**
-   * Cierra el esquema para este certificador: sus respuestas quedan
-   * consolidadas y deja de poder modificarlas. Sigue viendo todo en solo lectura.
+   * Valida que todos los items de este usuario estén llenados,
+   * y luego estampa el EnvioCertificacion.
    *
    * Exige que no quede ningún caso incompleto. Enviar a medias dejaría al
    * usuario bloqueado con preguntas sin responder y sin forma de arreglarlo,
@@ -525,8 +569,9 @@ export class CertificacionesService {
     const incompletos = items.filter((i) => !this.casoListo(i.resultado)).length;
     if (incompletos > 0) {
       throw new BadRequestException(
-        `Todavía te ${incompletos === 1 ? 'queda 1 caso' : `quedan ${incompletos} casos`} por completar. ` +
-          'Responde las dos preguntas de cada caso y llena los comentarios obligatorios antes de enviar.',
+        `${incompletos === 1 ? 'Hay 1 caso' : `Hay ${incompletos} casos`} con una respuesta a medias: ` +
+          'elegiste una opción que pide un comentario obligatorio y quedó vacío. ' +
+          'Complétalo (o quita la respuesta para dejar el caso sin dato) antes de enviar.',
       );
     }
 

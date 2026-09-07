@@ -51,6 +51,18 @@ export class CertificacionesController {
     return this.certificacionesService.enviarCertificacion(user.userId, esquemaId);
   }
 
+  /**
+   * Solicitar reapertura tras haber enviado.
+   */
+  @Post('mis-certificaciones/:esquemaId/solicitar-reapertura')
+  solicitarReapertura(
+    @CurrentUser() user: any,
+    @Param('esquemaId') esquemaId: string,
+    @Body('motivo') motivo: string,
+  ) {
+    return this.certificacionesService.solicitarReapertura(user.userId, esquemaId, motivo);
+  }
+
   /** Autoguardado de la respuesta de un caso de prueba. */
   @Patch('mis-certificaciones/items/:paqueteItemId')
   guardarRespuesta(

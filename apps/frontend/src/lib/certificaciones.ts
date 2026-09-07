@@ -96,12 +96,12 @@ export function camposPedidos(caso: CasoCertificable): CamposPedidos {
 }
 
 /**
- * Un caso está listo para enviarse cuando contestó las DOS preguntas y llenó los
- * comentarios que su combinación exige (los marcados con `*`). Es la misma regla
- * que valida el backend antes de dejar enviar.
+ * Un caso es VÁLIDO para enviar si está completamente vacío (se envía "sin
+ * dato") o si tiene lleno todo comentario obligatorio que sus respuestas
+ * despliegan. Lo único que lo invalida es una respuesta a medias: "No funciona"
+ * sin decir qué, o "Sí, cambió" sin decir qué. Misma regla que el backend.
  */
 export function casoListo(caso: CasoCertificable): boolean {
-  if (caso.estado === 'pendiente' || caso.cambio === null) return false;
   const pide = camposPedidos(caso);
   if (pide.falla && !caso.comentarioFalla?.trim()) return false;
   if (pide.cambio && !caso.comentarioCambio?.trim()) return false;

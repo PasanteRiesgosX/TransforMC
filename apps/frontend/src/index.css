@@ -826,10 +826,12 @@ tr.row-hover:hover { background: var(--bg); }
 .eval-choice:hover:not(:disabled) { border-color: var(--grayLight); }
 .eval-choice:disabled { cursor: not-allowed; }
 /* Tras enviar: la opción elegida se mantiene nítida, las demás se apagan. */
-.eval-choice:disabled:not(.on-teal):not(.on-rojo):not(.on-naranja):not(.on-neutral) { opacity: 0.4; }
+.eval-choice:disabled:not(.on-teal):not(.on-rojo):not(.on-naranja):not(.on-cian):not(.on-neutral) { opacity: 0.4; }
 .eval-choice.on-teal { background: var(--teal-bg); border-color: var(--teal); color: #00806E; }
 .eval-choice.on-rojo { background: var(--rojo-bg); border-color: var(--rojo); color: var(--rojo); }
 .eval-choice.on-naranja { background: var(--naranja-bg); border-color: var(--naranjaFuerte); color: #9A5B00; }
+/* "No, sigue igual" respondido — color propio para que se note que P2 ya tiene respuesta. */
+.eval-choice.on-cian { background: var(--cian-bg); border-color: var(--cian); color: #0090C7; }
 .eval-choice.on-neutral { background: var(--bg); border-color: var(--grayLight); color: var(--gray); }
 
 /* Caja de comentario + adjunto (el adjunto es placeholder no funcional) */

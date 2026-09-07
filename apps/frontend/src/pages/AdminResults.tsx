@@ -79,6 +79,15 @@ export const AdminResults: React.FC = () => {
           Cada esquema de evaluación es un testeo independiente. Entra en uno para ver su avance
           por módulo, submódulo y caso de prueba.
         </p>
+        <div className="mt-[16px]">
+          <Button 
+            variant="outline"
+            icon={<Rocket size={16} />}
+            onClick={() => navigate('/admin/resultados/comparativa')}
+          >
+            Pruebas vs Producción
+          </Button>
+        </div>
       </div>
 
       {esquemas.length === 0 ? (

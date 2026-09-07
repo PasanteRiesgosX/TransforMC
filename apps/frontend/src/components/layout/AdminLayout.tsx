@@ -115,10 +115,19 @@ export const AdminLayout: React.FC = () => {
               Resultados
             </NavLink>
 
-            <div className="flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] text-[var(--grayLight)] opacity-55 cursor-default">
+            <NavLink
+              to="/admin/solicitudes"
+              className={({ isActive }) =>
+                `flex items-center gap-[11px] p-[10px_12px] rounded-[var(--radius-s)] text-[13.5px] font-bold mb-[3px] transition-all ${
+                  isActive
+                    ? 'bg-[var(--active-bg)] text-[var(--navy)]'
+                    : 'text-[var(--gray)] hover:bg-[var(--grayBg)] hover:text-[var(--navy)]'
+                }`
+              }
+            >
               <FileText size={18} />
               Solicitudes
-            </div>
+            </NavLink>
           </nav>
         </aside>
 

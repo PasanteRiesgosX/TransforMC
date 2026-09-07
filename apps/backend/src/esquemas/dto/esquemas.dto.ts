@@ -46,6 +46,10 @@ export class CreateEsquemaDto {
   @IsOptional()
   ambiente?: Ambiente;
 
+  @IsOptional()
+  @IsUUID('all', { message: 'El ID del esquema padre debe ser un UUID.' })
+  esquemaPadreId?: string;
+
   @IsArray()
   @ArrayNotEmpty({ message: 'Un esquema debe tener al menos un paquete.' })
   @ArrayMinSize(1, { message: 'Un esquema debe tener al menos un paquete.' })
@@ -63,6 +67,10 @@ export class UpdateEsquemaDto {
   @IsIn(AMBIENTES, { message: 'El ambiente debe ser "Pruebas" o "Producción".' })
   @IsOptional()
   ambiente?: Ambiente;
+
+  @IsOptional()
+  @IsUUID('all', { message: 'El ID del esquema padre debe ser un UUID.' })
+  esquemaPadreId?: string;
 }
 
 /** Agregar un paquete nuevo a un esquema ya existente. */
@@ -83,3 +91,4 @@ export class UpdatePaqueteDto {
   @IsString({ each: true })
   userIds?: string[];
 }
+

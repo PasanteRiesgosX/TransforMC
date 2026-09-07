@@ -96,6 +96,7 @@ export class EsquemasService {
   // ==========================================
 
   private static detalleInclude = {
+    esquemasHijos: { select: { id: true, nombre: true, ambiente: true } },
     paquetes: {
       orderBy: { orden: 'asc' as const },
       include: {
@@ -118,6 +119,8 @@ export class EsquemasService {
       id: esquema.id,
       nombre: esquema.nombre,
       ambiente: esquema.ambiente,
+      esquemaPadreId: esquema.esquemaPadreId,
+      esquemasHijos: esquema.esquemasHijos,
       creadoPorId: esquema.creadoPorId,
       creadoEn: esquema.creadoEn,
       actualizadoEn: esquema.actualizadoEn,
@@ -151,9 +154,12 @@ export class EsquemasService {
     const esquemas = await this.prisma.esquema.findMany({
       orderBy: { creadoEn: 'desc' },
       include: {
+        esquemasHijos: { select: { id: true, nombre: true, ambiente: true } },
         paquetes: {
           include: {
-            _count: { select: { items: true } },
+            items: {
+              include: { resultado: { select: { estado: true } } }
+            },
             responsables: {
               include: {
                 usuario: { select: { id: true, nombre: true, apellido: true } },
@@ -165,24 +171,42 @@ export class EsquemasService {
     });
 
     return esquemas.map((sch: any) => {
-      const totalItems = sch.paquetes.reduce(
-        (sum: number, p: any) => sum + p._count.items,
-        0,
-      );
+      let ok = 0;
+      let fail = 0;
+      let totalItems = 0;
+
       const respMap = new Map<string, any>();
-      sch.paquetes.forEach((p: any) =>
-        p.responsables.forEach((r: any) => respMap.set(r.usuario.id, r.usuario)),
-      );
+      sch.paquetes.forEach((p: any) => {
+        totalItems += p.items.length;
+        p.items.forEach((item: any) => {
+          if (item.resultado?.estado === 'aprobado') ok++;
+          if (item.resultado?.estado === 'rechazado') fail++;
+        });
+        p.responsables.forEach((r: any) => respMap.set(r.usuario.id, r.usuario));
+      });
+
+      let calidad: number | null = null;
+      if (ok + fail > 0) {
+        calidad = Math.round((ok / (ok + fail)) * 100);
+      }
+
       return {
         id: sch.id,
         nombre: sch.nombre,
         ambiente: sch.ambiente,
+        esquemaPadreId: sch.esquemaPadreId,
+        esquemasHijos: sch.esquemasHijos,
         creadoEn: sch.creadoEn,
         responsables: [...respMap.values()],
         _count: {
           paquetes: sch.paquetes.length,
           items: totalItems,
         },
+        metricas: {
+          ok,
+          fail,
+          calidad
+        }
       };
     });
   }
@@ -214,10 +238,11 @@ export class EsquemasService {
 
     const nombre = this.normalizarNombreEsquema(dto.nombre);
     const ambiente = dto.ambiente ?? 'Pruebas';
+    const esquemaPadreId = dto.esquemaPadreId;
 
     const creado = await this.prisma.$transaction(async (tx) => {
       const esquema = await tx.esquema.create({
-        data: { nombre, ambiente, creadoPorId },
+        data: { nombre, ambiente, creadoPorId, esquemaPadreId },
       });
       for (let i = 0; i < paquetes.length; i++) {
         await this.crearPaqueteTx(tx, esquema.id, paquetes[i], i);
