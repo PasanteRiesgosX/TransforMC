@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { getModuleIcon } from './AdminCatalog';
 import { Plus, Trash2, Pencil, ShieldAlert, ChevronRight } from 'lucide-react';
 
+const API = import.meta.env.VITE_API_URL;
 const colors = ['cian', 'morado', 'magenta', 'naranja', 'teal'];
 
 function getHashIndex(str: string, max: number): number {
@@ -48,7 +49,7 @@ export const AdminCatalogDetail: React.FC = () => {
   const fetchModulo = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:3000/api/modulos/${id}`, {
+      const res = await axios.get(`${API}/api/modulos/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setModulo(res.data);
@@ -88,18 +89,18 @@ export const AdminCatalogDetail: React.FC = () => {
     try {
       if (modalState.type === 'submodulo') {
         if (modalState.mode === 'create') {
-          await axios.post(`http://localhost:3000/api/modulos/${id}/submodulos`, { nombre: formData.nombre }, { headers });
+          await axios.post(`${API}/api/modulos/${id}/submodulos`, { nombre: formData.nombre }, { headers });
           showToast('SubMódulo creado');
         } else if (modalState.mode === 'edit') {
-          await axios.patch(`http://localhost:3000/api/submodulos/${modalState.entityId}`, { nombre: formData.nombre }, { headers });
+          await axios.patch(`${API}/api/submodulos/${modalState.entityId}`, { nombre: formData.nombre }, { headers });
           showToast('SubMódulo actualizado');
         }
       } else if (modalState.type === 'clasificador') {
         if (modalState.mode === 'create') {
-          await axios.post(`http://localhost:3000/api/submodulos/${activeSubModuloId}/clasificadores`, { nombre: formData.nombre }, { headers });
+          await axios.post(`${API}/api/submodulos/${activeSubModuloId}/clasificadores`, { nombre: formData.nombre }, { headers });
           showToast('Clasificador creado');
         } else if (modalState.mode === 'edit') {
-          await axios.patch(`http://localhost:3000/api/clasificadores/${modalState.entityId}`, { nombre: formData.nombre }, { headers });
+          await axios.patch(`${API}/api/clasificadores/${modalState.entityId}`, { nombre: formData.nombre }, { headers });
           showToast('Clasificador actualizado');
         }
       } else if (modalState.type === 'caso') {
@@ -108,10 +109,10 @@ export const AdminCatalogDetail: React.FC = () => {
           clasificadorId: formData.clasificadorId || null 
         };
         if (modalState.mode === 'create') {
-          await axios.post(`http://localhost:3000/api/submodulos/${activeSubModuloId}/casos`, payload, { headers });
+          await axios.post(`${API}/api/submodulos/${activeSubModuloId}/casos`, payload, { headers });
           showToast('Caso de prueba creado');
         } else if (modalState.mode === 'edit') {
-          await axios.patch(`http://localhost:3000/api/casos/${modalState.entityId}`, payload, { headers });
+          await axios.patch(`${API}/api/casos/${modalState.entityId}`, payload, { headers });
           showToast('Caso de prueba actualizado');
         }
       }
@@ -130,19 +131,19 @@ export const AdminCatalogDetail: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
     try {
       if (modalState.type === 'deleteModulo') {
-        await axios.delete(`http://localhost:3000/api/modulos/${id}`, { headers });
+        await axios.delete(`${API}/api/modulos/${id}`, { headers });
         showToast('Módulo eliminado');
         navigate('/admin/catalogo');
         return;
       } else if (modalState.type === 'deleteSubModulo') {
-        await axios.delete(`http://localhost:3000/api/submodulos/${modalState.entityId}`, { headers });
+        await axios.delete(`${API}/api/submodulos/${modalState.entityId}`, { headers });
         showToast('SubMódulo eliminado');
         setActiveSubModuloId(null);
       } else if (modalState.type === 'deleteClasificador') {
-        await axios.delete(`http://localhost:3000/api/clasificadores/${modalState.entityId}`, { headers });
+        await axios.delete(`${API}/api/clasificadores/${modalState.entityId}`, { headers });
         showToast('Clasificador eliminado');
       } else if (modalState.type === 'deleteCaso') {
-        await axios.delete(`http://localhost:3000/api/casos/${modalState.entityId}`, { headers });
+        await axios.delete(`${API}/api/casos/${modalState.entityId}`, { headers });
         showToast('Caso de prueba eliminado');
       }
       setModalState({ ...modalState, isOpen: false });

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { SignatureBar } from '../components/ui/SignatureBar';
 import axios from 'axios';
+const API = import.meta.env.VITE_API_URL;
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ export const Login: React.FC = () => {
     try {
       // In reality, this points to your backend. 
       // For now, we point to the NestJS server.
-      const res = await axios.post('http://localhost:3000/auth/login', {
+      const res = await axios.post(`${API}/auth/login`, {
         email,
         password,
         landingRole: landingRole || 'user'
@@ -105,7 +106,7 @@ export const Login: React.FC = () => {
             <Input
               label="Correo electrónico"
               type="email"
-              placeholder="ejemplo@midominio.com"
+              placeholder="@multicines.com.ec"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"

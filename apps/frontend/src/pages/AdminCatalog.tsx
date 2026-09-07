@@ -12,6 +12,7 @@ import {
   DoorOpen, Package
 } from 'lucide-react';
 
+const API = import.meta.env.VITE_API_URL;
 const colors = ['cian', 'morado', 'magenta', 'naranja', 'teal'];
 
 function getHashIndex(str: string, max: number): number {
@@ -57,7 +58,7 @@ export const AdminCatalog: React.FC = () => {
   const fetchModulos = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:3000/api/modulos', {
+      const res = await axios.get(`${API}/api/modulos`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setModulos(res.data);
@@ -76,7 +77,7 @@ export const AdminCatalog: React.FC = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:3000/api/modulos', formData, {
+      await axios.post(`${API}/api/modulos`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showToast('Módulo creado correctamente');

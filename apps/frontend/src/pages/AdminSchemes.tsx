@@ -14,7 +14,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
-const API = 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 const colors = ['cian', 'morado', 'magenta', 'naranja', 'teal'];
 
 function getHashIndex(str: string, max: number): number {

@@ -3,7 +3,7 @@
  * Tipos y helpers compartidos por los cuatro niveles del drill-down.
  */
 
-export const API = 'http://localhost:3000';
+export const API = import.meta.env.VITE_API_URL;
 
 /** Paleta de acento; el color de cada tarjeta sale del hash de su id. */
 export const colors = ['cian', 'morado', 'magenta', 'naranja', 'teal'] as const;

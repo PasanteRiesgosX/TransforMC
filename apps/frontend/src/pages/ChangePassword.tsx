@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { SignatureBar } from '../components/ui/SignatureBar';
 import { ShieldCheck, LogOut } from 'lucide-react';
 import axios from 'axios';
+const API = import.meta.env.VITE_API_URL;
 
 export const ChangePassword: React.FC = () => {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ export const ChangePassword: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:3000/auth/change-password', 
+      await axios.post(`${API}/auth/change-password`, 
         { newPassword: password },
         { headers: { Authorization: `Bearer ${token}` } }
       );

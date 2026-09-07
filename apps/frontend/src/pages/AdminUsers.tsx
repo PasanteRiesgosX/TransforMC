@@ -9,6 +9,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
 import { Plus, Search, Pencil, X, ShieldAlert } from 'lucide-react';
 import axios from 'axios';
+const API = import.meta.env.VITE_API_URL;
 
 export const AdminUsers: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -41,7 +42,7 @@ export const AdminUsers: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:3000/users', {
+      const res = await axios.get(`${API}/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const mapped = res.data.map((u: any) => ({
@@ -101,7 +102,7 @@ export const AdminUsers: React.FC = () => {
 
       if (editingUser) {
         // Edit
-        await axios.patch(`http://localhost:3000/users/${editingUser.id}`, {
+        await axios.patch(`${API}/users/${editingUser.id}`, {
           nombre: formData.nombre,
           apellido: formData.apellido,
           cargo: formData.cargo,
@@ -111,7 +112,7 @@ export const AdminUsers: React.FC = () => {
         showToast('Usuario actualizado correctamente');
       } else {
         // Create
-        await axios.post('http://localhost:3000/users', {
+        await axios.post(`${API}/users`, {
           nombre: formData.nombre,
           apellido: formData.apellido,
           cargo: formData.cargo,
@@ -132,7 +133,7 @@ export const AdminUsers: React.FC = () => {
     if (!userToDelete) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:3000/users/${userToDelete.id}`, {
+      await axios.delete(`${API}/users/${userToDelete.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showToast('Usuario eliminado correctamente');
@@ -259,13 +260,13 @@ export const AdminUsers: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <Input 
             label="Nombre" 
-            placeholder="Ej. Juan"
+            placeholder="Ej. Isaac"
             value={formData.nombre}
             onChange={e => setFormData({...formData, nombre: e.target.value})}
           />
           <Input 
             label="Apellido" 
-            placeholder="Ej. Pérez"
+            placeholder="Ej. Mena"
             value={formData.apellido}
             onChange={e => setFormData({...formData, apellido: e.target.value})}
           />
@@ -281,7 +282,7 @@ export const AdminUsers: React.FC = () => {
         <Input 
           label="Correo electrónico" 
           type="email"
-          placeholder="juan.perez@midominio.com"
+          placeholder="@multicines.com.ec"
           value={formData.email}
           onChange={e => setFormData({...formData, email: e.target.value})}
         />

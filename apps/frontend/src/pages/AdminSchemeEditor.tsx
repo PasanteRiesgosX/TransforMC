@@ -16,8 +16,7 @@ import {
   Package,
   ShieldAlert,
 } from 'lucide-react';
-
-const API = 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL;
 
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
