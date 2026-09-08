@@ -101,7 +101,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   const noFunciona = caso.estado === 'rechazado';
   const esVersionado = caso.version > 1;
 
-  const puedeVersionar = !soloLectura && caso.estado !== 'pendiente' && onVersionar;
+  const puedeVersionar = !soloLectura && caso.estado !== 'pendiente' && onVersionar && caso.version < 6;
 
   return (
     <div className="flex flex-col gap-2 relative">

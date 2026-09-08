@@ -145,13 +145,15 @@ export const CertifierSchemes: React.FC = () => {
                           ? 'Continuar certificando'
                           : 'Empezar a certificar'}
                     </button>
-                    <button
-                      className={`btn ${enviado ? 'btn-outline hover:bg-[#e6f4f1] hover:text-[var(--teal)] hover:border-[var(--teal)]' : 'btn-outline opacity-50'} transition-colors px-3`}
-                      title="Crear una nueva versión de este esquema"
-                      onClick={handleVersionar}
-                    >
-                      Versionar
-                    </button>
+                    {sch.version < 6 && (
+                      <button
+                        className={`btn ${enviado ? 'btn-outline hover:bg-[#e6f4f1] hover:text-[var(--teal)] hover:border-[var(--teal)]' : 'btn-outline opacity-50'} transition-colors px-3`}
+                        title="Crear una nueva versión de este esquema"
+                        onClick={handleVersionar}
+                      >
+                        Versionar
+                      </button>
+                    )}
                   </div>
                 </div>
               );

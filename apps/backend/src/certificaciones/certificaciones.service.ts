@@ -598,6 +598,9 @@ export class CertificacionesService {
     if (!activo || activo.estado === 'pendiente') {
       throw new BadRequestException('No puedes versionar un caso de prueba que está sin responder.');
     }
+    if (activo.version >= 6) {
+      throw new BadRequestException('Has alcanzado el límite máximo de versiones para este caso de prueba.');
+    }
 
     const [, actualizado] = await this.prisma.$transaction([
       this.prisma.resultadoHistorico.create({
@@ -621,7 +624,6 @@ export class CertificacionesService {
           cambio: null,
           comentarioFalla: null,
           comentarioCambio: null,
-          certificadoPorId: null,
           certificadoEn: null,
         },
         select: {
@@ -685,6 +687,9 @@ export class CertificacionesService {
     }
 
     const nuevaVersion = original.version + 1;
+    if (nuevaVersion > 6) {
+      throw new BadRequestException('Has alcanzado el límite máximo de versiones para este esquema.');
+    }
 
     // Clonar esquema en Prisma transaction
     const [nuevoEsquema] = await this.prisma.$transaction(async (tx) => {
