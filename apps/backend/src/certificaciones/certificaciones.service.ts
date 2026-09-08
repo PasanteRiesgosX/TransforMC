@@ -477,7 +477,7 @@ export class CertificacionesService {
       cambio,
       comentarioFalla,
       comentarioCambio,
-      certificadoPorId: yaCertificado ? usuarioId : null,
+      certificadoPorId: usuarioId,
       certificadoEn,
     };
 

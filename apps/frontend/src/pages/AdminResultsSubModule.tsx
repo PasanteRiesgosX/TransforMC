@@ -332,6 +332,7 @@ export const AdminResultsSubModule: React.FC = () => {
                         <tr key={`${caso.paqueteItemId}-${hist.version}`} className="bg-gray-50/50 opacity-60 row-hover">
                           <td className="pl-6 border-l-2 border-l-[var(--grayLight)]">
                             <div className="text-[var(--grayLight)] text-[12px] italic">Versión anterior</div>
+                            <div className="text-[var(--grayLight)] text-[11px] italic">({caso.nombre})</div>
                           </td>
                           <td>
                             <span className="text-[10px] font-bold text-[var(--gray)] bg-[var(--grayLight)] bg-opacity-20 px-2 py-0.5 rounded-full inline-block whitespace-nowrap">
