@@ -121,17 +121,10 @@ export class CertificacionesService {
         await this.prisma.paqueteItem.findMany({
           where: this.itemsDelUsuario(usuarioId, { esquemaId }),
           select: {
-            resultado: {
-              select: {
-                estado: true,
-                cambio: true,
-                comentarioFalla: true,
-                comentarioCambio: true,
-              },
-            },
+            resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true } },
           },
         })
-      ).map((i) => i.resultado);
+      ).map((i) => i.resultados[0] ?? null);
 
     const incompletos = lista.filter((r) => !this.casoListo(r)).length;
 
@@ -166,14 +159,7 @@ export class CertificacionesService {
         where: this.itemsDelUsuario(usuarioId),
         select: {
           esquemaId: true,
-          resultado: {
-            select: {
-              estado: true,
-              cambio: true,
-              comentarioFalla: true,
-              comentarioCambio: true,
-            },
-          },
+          resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true } },
           esquema: {
             select: { id: true, nombre: true, ambiente: true, creadoEn: true, version: true, esquemaVersionDeId: true },
           },
@@ -191,7 +177,7 @@ export class CertificacionesService {
     const grupos = new Map<string, { esquema: any; resultados: any[] }>();
     for (const it of items) {
       const g = grupos.get(it.esquemaId) ?? { esquema: it.esquema, resultados: [] };
-      g.resultados.push(it.resultado);
+      g.resultados.push(it.resultados[0] ?? null);
       grupos.set(it.esquemaId, g);
     }
 
@@ -246,14 +232,7 @@ export class CertificacionesService {
     const items = await this.prisma.paqueteItem.findMany({
       where: this.itemsDelUsuario(usuarioId, { esquemaId }),
       select: {
-        resultado: {
-          select: {
-            estado: true,
-            cambio: true,
-            comentarioFalla: true,
-            comentarioCambio: true,
-          },
-        },
+        resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true } },
         casoPrueba: {
           select: {
             subModulo: {
@@ -276,7 +255,7 @@ export class CertificacionesService {
     const envio = await this.estadoEnvio(
       usuarioId,
       esquemaId,
-      items.map((i) => i.resultado),
+      items.map((i) => i.resultados[0] ?? null),
     );
 
     // Módulo → SubMódulo → resultados
@@ -292,7 +271,7 @@ export class CertificacionesService {
         subs: new Map<string, any>(),
         resultados: [],
       };
-      gm.resultados.push(it.resultado);
+      gm.resultados.push(it.resultados[0] ?? null);
 
       const gs = gm.subs.get(sub.id) ?? {
         id: sub.id,
@@ -300,7 +279,7 @@ export class CertificacionesService {
         orden: sub.orden,
         resultados: [],
       };
-      gs.resultados.push(it.resultado);
+      gs.resultados.push(it.resultados[0] ?? null);
 
       gm.subs.set(sub.id, gs);
       modulos.set(mod.id, gm);
@@ -316,7 +295,7 @@ export class CertificacionesService {
       esquema,
       envio,
       solicitudReapertura,
-      progreso: this.progreso(items.map((i) => i.resultado)),
+      progreso: this.progreso(items.map((i) => i.resultados[0] ?? null)),
       modulos: [...modulos.values()]
         .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'))
         .map((m) => ({
@@ -371,16 +350,7 @@ export class CertificacionesService {
             subModulo: { select: { id: true, nombre: true, orden: true } },
           },
         },
-        resultado: {
-          select: {
-            estado: true,
-            cambio: true,
-            comentarioFalla: true,
-            comentarioCambio: true,
-            actualizadoEn: true,
-            version: true,
-          },
-        },
+        resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true, actualizadoEn: true, version: true } },
         resultadosHistoricos: {
           orderBy: { version: 'desc' },
           select: {
@@ -420,11 +390,11 @@ export class CertificacionesService {
         orden: it.casoPrueba.orden,
         clasificador: it.casoPrueba.clasificador?.nombre ?? null,
         // Sin fila en ResultadoItem = todavía sin responder.
-        estado: it.resultado?.estado ?? 'pendiente',
-        cambio: it.resultado?.cambio ?? null,
-        comentarioFalla: it.resultado?.comentarioFalla ?? null,
-        comentarioCambio: it.resultado?.comentarioCambio ?? null,
-        version: it.resultado?.version ?? 1,
+        estado: (it.resultados[0]?.estado) ?? 'pendiente',
+        cambio: (it.resultados[0]?.cambio) ?? null,
+        comentarioFalla: (it.resultados[0]?.comentarioFalla) ?? null,
+        comentarioCambio: (it.resultados[0]?.comentarioCambio) ?? null,
+        version: (it.resultados[0]?.version) ?? 1,
         versionesAnteriores: it.resultadosHistoricos ?? [],
       });
       subs.set(sub.id, g);
@@ -434,7 +404,7 @@ export class CertificacionesService {
       esquema,
       modulo,
       envio,
-      progreso: this.progreso(items.map((i) => i.resultado)),
+      progreso: this.progreso(items.map((i) => i.resultados[0] ?? null)),
       subModulos: [...subs.values()]
         .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'))
         .map((s) => ({
@@ -466,7 +436,7 @@ export class CertificacionesService {
   ) {
     const item = await this.prisma.paqueteItem.findFirst({
       where: this.itemsDelUsuario(usuarioId, { id: paqueteItemId }),
-      select: { id: true, esquemaId: true, resultado: true },
+      select: { id: true, esquemaId: true, resultados: { where: { certificadoPorId: usuarioId } } },
     });
     // Mismo mensaje exista o no: no revelamos si el ítem existe para otro usuario.
     if (!item) {
@@ -476,7 +446,7 @@ export class CertificacionesService {
     // Tras enviar, el esquema queda de solo lectura para este usuario.
     await this.asegurarNoEnviado(usuarioId, item.esquemaId);
 
-    const previo = item.resultado;
+    const previo = item.resultados[0] ?? null;
 
     // Estado final de las dos preguntas después de aplicar el parche.
     const estado = dto.estado ?? previo?.estado ?? 'pendiente';
@@ -512,7 +482,7 @@ export class CertificacionesService {
     };
 
     const guardado = await this.prisma.resultadoItem.upsert({
-      where: { paqueteItemId },
+      where: { paqueteItemId_certificadoPorId: { paqueteItemId, certificadoPorId: usuarioId } },
       create: { paqueteItemId, ...datos },
       update: datos,
       select: {
@@ -576,14 +546,7 @@ export class CertificacionesService {
     const items = await this.prisma.paqueteItem.findMany({
       where: this.itemsDelUsuario(usuarioId, { esquemaId }),
       select: {
-        resultado: {
-          select: {
-            estado: true,
-            cambio: true,
-            comentarioFalla: true,
-            comentarioCambio: true,
-          },
-        },
+        resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true } },
       },
     });
     if (!items.length) {
@@ -592,7 +555,7 @@ export class CertificacionesService {
 
     await this.asegurarNoEnviado(usuarioId, esquemaId);
 
-    const incompletos = items.filter((i) => !this.casoListo(i.resultado)).length;
+    const incompletos = items.filter((i) => !this.casoListo(i.resultados[0] ?? null)).length;
     if (incompletos > 0) {
       throw new BadRequestException(
         `${incompletos === 1 ? 'Hay 1 caso' : `Hay ${incompletos} casos`} con una respuesta a medias: ` +
@@ -623,7 +586,7 @@ export class CertificacionesService {
   async versionarItem(usuarioId: string, paqueteItemId: string) {
     const item = await this.prisma.paqueteItem.findFirst({
       where: this.itemsDelUsuario(usuarioId, { id: paqueteItemId }),
-      select: { id: true, esquemaId: true, resultado: true },
+      select: { id: true, esquemaId: true, resultados: { where: { certificadoPorId: usuarioId } } },
     });
     if (!item) {
       throw new ForbiddenException('Este caso de prueba no está asignado a ti.');
@@ -631,7 +594,7 @@ export class CertificacionesService {
 
     await this.asegurarNoEnviado(usuarioId, item.esquemaId);
 
-    const activo = item.resultado;
+    const activo = item.resultados[0] ?? null;
     if (!activo || activo.estado === 'pendiente') {
       throw new BadRequestException('No puedes versionar un caso de prueba que está sin responder.');
     }
@@ -651,7 +614,7 @@ export class CertificacionesService {
         },
       }),
       this.prisma.resultadoItem.update({
-        where: { paqueteItemId },
+        where: { paqueteItemId_certificadoPorId: { paqueteItemId, certificadoPorId: usuarioId } },
         data: {
           version: { increment: 1 },
           estado: 'pendiente',

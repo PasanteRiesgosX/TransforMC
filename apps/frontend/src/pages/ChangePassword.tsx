@@ -20,8 +20,12 @@ export const ChangePassword: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Protect route
-  if (!user || !user.forceChange) {
+  if (!user) {
     return <Navigate to="/" />;
+  }
+
+  if (!user.forceChange) {
+    return <Navigate to={user.role === 'ADMIN' ? '/admin/usuarios' : '/certificador/esquemas'} replace />;
   }
 
   const handleLogout = () => {
@@ -50,13 +54,13 @@ export const ChangePassword: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      updateForceChange(false);
       showToast('Contraseña actualizada correctamente');
+      updateForceChange(false);
       
       if (user.role === 'ADMIN') {
-        navigate('/admin/usuarios');
+        navigate('/admin/usuarios', { replace: true });
       } else {
-        navigate('/certificador/esquemas');
+        navigate('/certificador/esquemas', { replace: true });
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al actualizar contraseña.');

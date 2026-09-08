@@ -229,7 +229,7 @@ export const AdminResultsSubModule: React.FC = () => {
                 const hasVersions = caso.version > 1 || (caso.versionesAnteriores && caso.versionesAnteriores.length > 0);
                 
                 return (
-                  <React.Fragment key={caso.paqueteItemId}>
+                  <React.Fragment key={`${caso.paqueteItemId}-${caso.responsables[0]?.id ?? 'unassigned'}`}>
                     <tr className="row-hover">
                       <td>
                         <div className="font-bold text-[var(--navy)] text-[13px]">{caso.nombre}</div>

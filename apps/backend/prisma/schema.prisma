@@ -191,8 +191,8 @@ model PaqueteItem {
 
   creadoEn DateTime @default(now())
 
-  // Fase 4 — un PaqueteItem tiene, como mucho, un ResultadoItem (1:1 opcional)
-  resultado            ResultadoItem?
+  // Fase 4 — un PaqueteItem puede tener múltiples Resultados (uno por certificador)
+  resultados           ResultadoItem[]
   resultadosHistoricos ResultadoHistorico[]
 
   @@unique([esquemaId, casoPruebaId])
@@ -230,9 +230,8 @@ model PaqueteResponsable {
 model ResultadoItem {
   id String @id @default(uuid())
 
-  // Relación 1:1 con PaqueteItem — un ítem del esquema tiene, como mucho, un
-  // resultado (no se puede certificar dos veces "el mismo item del mismo esquema").
-  paqueteItemId String      @unique
+  // Relación 1:N con PaqueteItem — un ítem del esquema puede tener varios resultados (uno por certificador).
+  paqueteItemId String
   paqueteItem   PaqueteItem @relation(fields: [paqueteItemId], references: [id], onDelete: Cascade)
 
   // Pregunta 1 — "¿Funciona correctamente en este ambiente?"
@@ -271,6 +270,7 @@ model ResultadoItem {
   // Versionamiento: número secuencial de versión (1 = original, 2 = primera re-versión, etc.)
   version Int @default(1)
 
+  @@unique([paqueteItemId, certificadoPorId])
   @@index([estado])
   @@index([certificadoPorId])
 }

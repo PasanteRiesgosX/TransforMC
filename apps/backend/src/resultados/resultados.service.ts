@@ -32,6 +32,16 @@ export class ResultadosService {
 
   // ==========================================
   // HELPERS
+
+  private extraerResultados(item: any): ({ estado: string } | null)[] {
+    const responsables = item.paquete?.responsables || [];
+    if (responsables.length === 0) return [null];
+    return responsables.map((r: any) => {
+      const res = (item.resultados || []).find((x: any) => x.certificadoPorId === (r.usuarioId || r.usuario?.id));
+      return res ?? null;
+    });
+  }
+
   // ==========================================
 
   /**
@@ -110,7 +120,7 @@ export class ResultadosService {
         },
       }),
       this.prisma.paqueteItem.findMany({
-        select: { esquemaId: true, resultado: { select: { estado: true } } },
+        select: { esquemaId: true, resultados: { select: { certificadoPorId: true, estado: true } }, paquete: { select: { responsables: { select: { usuarioId: true } } } } },
       }),
     ]);
 
@@ -118,13 +128,13 @@ export class ResultadosService {
     const porEsquema = new Map<string, ({ estado: string } | null)[]>();
     for (const it of items) {
       const lista = porEsquema.get(it.esquemaId) ?? [];
-      lista.push(it.resultado);
+      lista.push(...this.extraerResultados(it));
       porEsquema.set(it.esquemaId, lista);
     }
 
     return {
       // Acumulado de TODOS los esquemas, solo para los 4 stat-card de arriba.
-      totales: this.calcularMetricas(items.map((i) => i.resultado)),
+      totales: this.calcularMetricas(items.flatMap((i) => this.extraerResultados(i))),
       esquemas: esquemas.map((sch: any) => {
         const totalItems = sch.paquetes.reduce(
           (sum: number, p: any) => sum + p._count.items,
@@ -169,7 +179,8 @@ export class ResultadosService {
     const items = await this.prisma.paqueteItem.findMany({
       where: { esquemaId },
       select: {
-        resultado: { select: { estado: true } },
+        resultados: { select: { certificadoPorId: true, estado: true } },
+        paquete: { select: { responsables: { select: { usuarioId: true } } } },
         casoPrueba: {
           select: {
             subModulo: {
@@ -206,7 +217,7 @@ export class ResultadosService {
         resultados: [],
       };
       grupo.subModuloIds.add(sub.id);
-      grupo.resultados.push(it.resultado);
+      grupo.resultados.push(...this.extraerResultados(it));
       grupos.set(mod.id, grupo);
     }
 
@@ -221,7 +232,7 @@ export class ResultadosService {
 
     return {
       esquema,
-      metricas: this.calcularMetricas(items.map((i) => i.resultado)),
+      metricas: this.calcularMetricas(items.flatMap((i) => this.extraerResultados(i))),
       modulos,
     };
   }
@@ -246,7 +257,7 @@ export class ResultadosService {
     const items = await this.prisma.paqueteItem.findMany({
       where: { esquemaId, casoPrueba: { subModulo: { moduloId } } },
       select: {
-        resultado: { select: { estado: true } },
+        resultados: { select: { certificadoPorId: true, estado: true } },
         paquete: {
           select: {
             responsables: {
@@ -291,7 +302,7 @@ export class ResultadosService {
         resultados: [],
       };
       grupo.responsables.push(...this.responsablesDeItem(it));
-      grupo.resultados.push(it.resultado);
+      grupo.resultados.push(...this.extraerResultados(it));
       grupos.set(sub.id, grupo);
     }
 
@@ -307,7 +318,7 @@ export class ResultadosService {
     return {
       esquema,
       modulo,
-      metricas: this.calcularMetricas(items.map((i) => i.resultado)),
+      metricas: this.calcularMetricas(items.flatMap((i) => this.extraerResultados(i))),
       subModulos,
     };
   }
@@ -356,8 +367,7 @@ export class ResultadosService {
             },
           },
         },
-        resultado: {
-          select: {
+        resultados: { select: { certificadoPorId: true,
             estado: true,
             cambio: true,
             comentarioFalla: true,
@@ -398,31 +408,52 @@ export class ResultadosService {
           a.casoPrueba.orden - b.casoPrueba.orden ||
           a.casoPrueba.nombre.localeCompare(b.casoPrueba.nombre, 'es'),
       )
-      .map((it) => ({
-        paqueteItemId: it.id,
-        casoPruebaId: it.casoPrueba.id,
-        nombre: it.casoPrueba.nombre,
-        clasificador: it.casoPrueba.clasificador?.nombre ?? null,
-        paquete: { id: it.paquete.id, nombre: it.paquete.nombre },
-        // Sin fila en ResultadoItem = pendiente (nunca null, nunca error).
-        estado: it.resultado?.estado ?? 'pendiente',
-        cambio: it.resultado?.cambio === true,
-        // Los dos comentarios que puede dejar el certificador (Fase 5). La tabla
-        // de Resultados los muestra juntos en la columna "Comentario".
-        comentarioFalla: it.resultado?.comentarioFalla ?? null,
-        comentarioCambio: it.resultado?.comentarioCambio ?? null,
-        certificadoPor: it.resultado?.certificadoPor ?? null,
-        certificadoEn: it.resultado?.certificadoEn ?? null,
-        responsables: this.responsablesDeItem(it),
-        version: it.resultado?.version ?? 1,
-        versionesAnteriores: it.resultadosHistoricos ?? [],
-      }));
+      .flatMap((it) => {
+        const responsables = this.responsablesDeItem(it);
+        if (responsables.length === 0) {
+          return [{
+            paqueteItemId: it.id,
+            casoPruebaId: it.casoPrueba.id,
+            nombre: it.casoPrueba.nombre,
+            clasificador: it.casoPrueba.clasificador?.nombre ?? null,
+            paquete: { id: it.paquete.id, nombre: it.paquete.nombre },
+            estado: 'pendiente',
+            cambio: false,
+            comentarioFalla: null,
+            comentarioCambio: null,
+            certificadoPor: null as ResponsableDto | null,
+            certificadoEn: null,
+            responsables: [],
+            version: 1,
+            versionesAnteriores: [],
+          }];
+        }
+        return responsables.map((r) => {
+          const res = (it.resultados || []).find((x: any) => x.certificadoPorId === r.id);
+          return {
+            paqueteItemId: it.id,
+            casoPruebaId: it.casoPrueba.id,
+            nombre: it.casoPrueba.nombre,
+            clasificador: it.casoPrueba.clasificador?.nombre ?? null,
+            paquete: { id: it.paquete.id, nombre: it.paquete.nombre },
+            estado: res?.estado ?? 'pendiente',
+            cambio: res?.cambio === true,
+            comentarioFalla: res?.comentarioFalla ?? null,
+            comentarioCambio: res?.comentarioCambio ?? null,
+            certificadoPor: (res?.certificadoPor ?? r) as ResponsableDto | null,
+            certificadoEn: res?.certificadoEn ?? null,
+            responsables: [r],
+            version: res?.version ?? 1,
+            versionesAnteriores: (it.resultadosHistoricos || []).filter((h: any) => h.certificadoPor?.id === r.id),
+          };
+        });
+      });
 
     return {
       esquema,
       modulo: subModulo.modulo,
       subModulo: { id: subModulo.id, nombre: subModulo.nombre },
-      metricas: this.calcularMetricas(items.map((i) => i.resultado)),
+      metricas: this.calcularMetricas(items.flatMap((i) => this.extraerResultados(i))),
       // Opciones del filtro "Responsable" — solo quienes aparecen en esta tabla.
       responsablesDisponibles: this.dedupResponsables(
         casos.flatMap((c) => c.responsables),

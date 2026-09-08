@@ -159,7 +159,7 @@ export class EsquemasService {
         paquetes: {
           include: {
             items: {
-              include: { resultado: { select: { estado: true } } }
+              include: { resultados: true },
             },
             responsables: {
               include: {
@@ -178,10 +178,15 @@ export class EsquemasService {
 
       const respMap = new Map<string, any>();
       sch.paquetes.forEach((p: any) => {
-        totalItems += p.items.length;
+        totalItems += p.items.length * p.responsables.length;
         p.items.forEach((item: any) => {
-          if (item.resultado?.estado === 'aprobado') ok++;
-          if (item.resultado?.estado === 'rechazado') fail++;
+          const expectedResults = p.responsables.length;
+          // Count only the answers matching the expected responsables
+          for (const req of p.responsables) {
+             const res = (item.resultados || []).find((x: any) => x.certificadoPorId === req.usuarioId);
+             if (res?.estado === 'aprobado') ok++;
+             if (res?.estado === 'rechazado') fail++;
+          }
         });
         p.responsables.forEach((r: any) => respMap.set(r.usuario.id, r.usuario));
       });
