@@ -26,6 +26,11 @@ export class CertificacionesController {
     return this.certificacionesService.misEsquemas(user.userId);
   }
 
+  @Get('mis-certificaciones-resultados-detallados')
+  resultadosDetallados(@CurrentUser() user: any) {
+    return this.certificacionesService.resultadosDetallados(user.userId);
+  }
+
   /** Nivel 1 — módulos (con sus submódulos) que me tocan en ese esquema. */
   @Get('mis-certificaciones/:esquemaId')
   misModulos(@CurrentUser() user: any, @Param('esquemaId') esquemaId: string) {

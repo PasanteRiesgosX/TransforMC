@@ -214,6 +214,52 @@ export class CertificacionesService {
   }
 
   // ==========================================
+  
+  async resultadosDetallados(usuarioId: string) {
+    const esquemasBase = await this.misEsquemas(usuarioId);
+    
+    const respuesta = [];
+    for (const esq of esquemasBase) {
+       const items = await this.prisma.paqueteItem.findMany({
+         where: this.itemsDelUsuario(usuarioId, { esquemaId: esq.id }),
+         select: {
+           resultados: { where: { certificadoPorId: usuarioId }, select: { estado: true, cambio: true, comentarioFalla: true, comentarioCambio: true, actualizadoEn: true } },
+           casoPrueba: {
+             select: {
+               nombre: true,
+               subModulo: {
+                 select: {
+                   nombre: true,
+                   modulo: { select: { nombre: true } }
+                 }
+               }
+             }
+           }
+         }
+       });
+
+       const itemsDetalle = items.map(it => {
+         const res = it.resultados[0] ?? {};
+         let comentario = (res.comentarioFalla || '') + (res.comentarioFalla && res.comentarioCambio ? ' | ' : '') + (res.comentarioCambio || '');
+         return {
+           modulo: it.casoPrueba.subModulo.modulo.nombre,
+           subModulo: it.casoPrueba.subModulo.nombre,
+           casoPrueba: it.casoPrueba.nombre,
+           estado: res.estado ?? 'pendiente',
+           cambio: res.cambio,
+           comentario: comentario.trim(),
+         };
+       });
+
+       respuesta.push({
+         ...esq,
+         items: itemsDetalle
+       });
+    }
+
+    return respuesta;
+  }
+
   // NIVEL 1 — MÓDULOS DEL ESQUEMA (solo los míos)
   // ==========================================
 
